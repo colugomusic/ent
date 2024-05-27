@@ -24,6 +24,8 @@ struct Items {
   std::vector<MoreData> more_data;
   ...
 };
+
+Items items;
 ```
 
 Keeping these arrays in sync is error-prone. This library provides the following data structures:
