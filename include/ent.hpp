@@ -8,7 +8,7 @@
 namespace ent {
 
 template <typename... Ts>
-struct StaticStore {
+struct static_store {
 	auto resize(size_t size) -> void {
 		if (size <= this->size()) {
 			return;
@@ -34,7 +34,7 @@ private:
 };
 
 template <typename T>
-struct DynamicVec {
+struct dynamic_vec {
 	auto erase(size_t index) -> void {
 		std::swap(data_[index], data_.back());
 	}
@@ -51,11 +51,11 @@ private:
 };
 
 template <typename... Ts>
-struct DynamicStore {
+struct dynamic_store {
 	auto add() -> size_t {
 		if (free_indices_.empty()) {
 			const auto index = size();
-			(std::get<DynamicVec<Ts>>(data_).push_back(), ...);
+			(std::get<dynamic_vec<Ts>>(data_).push_back(), ...);
 			index_map_.push_back(index);
 			size_++;
 			return index;
@@ -72,7 +72,7 @@ struct DynamicStore {
 		size_ = 0;
 	}
 	auto erase(size_t index) -> void {
-		(std::get<DynamicVec<Ts>>(data_).erase(index), ...);
+		(std::get<dynamic_vec<Ts>>(data_).erase(index), ...);
 		std::swap(index_map_[index], index_map_.back());
 		free_indices_.push_back(index);
 		size_--;
@@ -87,12 +87,12 @@ struct DynamicStore {
 		return true;
 	}
 	auto size() const -> size_t { return size_; }
-	template <typename T> [[nodiscard]] auto get() -> std::vector<T>& { return std::get<DynamicVec<T>>(data_).get(); }
-	template <typename T> [[nodiscard]] auto get() const -> const std::vector<T>& { return std::get<DynamicVec<T>>(data_).get(); }
+	template <typename T> [[nodiscard]] auto get() -> std::vector<T>& { return std::get<dynamic_vec<T>>(data_).get(); }
+	template <typename T> [[nodiscard]] auto get() const -> const std::vector<T>& { return std::get<dynamic_vec<T>>(data_).get(); }
 	template <typename T> [[nodiscard]] auto get(size_t index) -> T& { return get<T>()[index_map_[index]]; }
 	template <typename T> [[nodiscard]] auto get(size_t index) const -> const T& { return get<T>()[index_map_[index]]; }
 private:
-	using Tuple = std::tuple<DynamicVec<Ts>...>;
+	using Tuple = std::tuple<dynamic_vec<Ts>...>;
 	Tuple data_;
 	size_t size_ = 0;
 	std::vector<size_t> index_map_;
