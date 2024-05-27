@@ -19,6 +19,13 @@ TEST_CASE("static_store") {
 	store.get<float>(idx0) = 111.1f;
 	store.get<int>(idx1) = 222;
 	store.get<float>(idx1) = 222.2f;
+	auto find = store.find(111);
+	REQUIRE(find);
+	REQUIRE(*find == idx0);
+	find = store.find(222.2f);
+	REQUIRE(find);
+	REQUIRE(*find == idx1);
+	REQUIRE(!store.find(333));
 	const auto idx2 = store.push_back();
 	REQUIRE(store.size() == 3);
 	REQUIRE(idx2 == 2);
@@ -47,6 +54,13 @@ TEST_CASE("dynamic_store") {
 	store.get<float>(idx0) = 111.1f;
 	store.get<int>(idx1) = 222;
 	store.get<float>(idx1) = 222.2f;
+	auto find = store.find(111);
+	REQUIRE(find);
+	REQUIRE(*find == idx0);
+	find = store.find(222.2f);
+	REQUIRE(find);
+	REQUIRE(*find == idx1);
+	REQUIRE(!store.find(333));
 	auto idx2 = store.add();
 	REQUIRE(store.size() == 3);
 	REQUIRE(store.is_valid(idx0));
@@ -58,6 +72,10 @@ TEST_CASE("dynamic_store") {
 	REQUIRE(store.get<int>(idx1) == 222);
 	REQUIRE(store.get<float>(idx1) == 222.2f);
 	store.erase(idx0);
+	REQUIRE(!store.find(111));
+	find = store.find(222.2f);
+	REQUIRE(find);
+	REQUIRE(*find == idx1);
 	REQUIRE(store.size() == 2);
 	REQUIRE(!store.is_valid(idx0));
 	REQUIRE(store.is_valid(idx1));

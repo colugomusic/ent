@@ -24,6 +24,28 @@ struct static_store {
 		return index < size();
 	}
 	auto size() const -> size_t { return std::get<0>(data_).size(); }
+	template <typename T> [[nodiscard]]
+	auto find(const T& value) const -> std::optional<size_t> {
+		size_t index = 0;
+		for (auto value_ : get<T>()) {
+			if (value_ == value) {
+				return index;
+			};
+			index++;
+		}
+		return std::nullopt;
+	}
+	template <typename T, typename Pred> [[nodiscard]]
+	auto find(Pred&& pred) const -> std::optional<size_t> {
+		size_t index = 0;
+		for (auto value : get<T>()) {
+			if (pred(value)) {
+				return index;
+			}
+			index++;
+		}
+		return std::nullopt;
+	}
 	template <typename T> [[nodiscard]] auto get() -> std::vector<T>& { return std::get<std::vector<T>>(data_); }
 	template <typename T> [[nodiscard]] auto get() const -> const std::vector<T>& { return std::get<std::vector<T>>(data_); }
 	template <typename T> [[nodiscard]] auto get(size_t index) -> T& { return std::get<std::vector<T>>(data_)[index]; }
@@ -87,6 +109,35 @@ struct dynamic_store {
 		return true;
 	}
 	auto size() const -> size_t { return size_; }
+	template <typename T> [[nodiscard]]
+	auto find(const T& value) const -> std::optional<size_t> {
+		size_t index = 0;
+		for (auto value_ : get<T>()) {
+			if (value_ == value) {
+				const auto pos = size_t(std::distance(index_map_.begin(), std::find(index_map_.begin(), index_map_.end(), index)));
+				if (is_valid(pos)) {
+					return pos;
+				}
+			};
+			index++;
+		}
+		return std::nullopt;
+	}
+	template <typename T, typename Pred> [[nodiscard]]
+	auto find(Pred&& pred) const -> std::optional<size_t> {
+		size_t index = 0;
+		for (auto value : get<T>()) {
+			if (pred(value)) {
+				const auto pos = size_t(std::distance(index_map_.begin(), std::find(index_map_.begin(), index_map_.end(), index)));
+				if (is_valid(pos)) {
+					return pos;
+				}
+			}
+			index++;
+		}
+		return std::nullopt;
+	}
+
 	template <typename T> [[nodiscard]] auto get() -> std::vector<T>& { return std::get<dynamic_vec<T>>(data_).get(); }
 	template <typename T> [[nodiscard]] auto get() const -> const std::vector<T>& { return std::get<dynamic_vec<T>>(data_).get(); }
 	template <typename T> [[nodiscard]] auto get(size_t index) -> T& { return get<T>()[index_map_[index]]; }
@@ -98,25 +149,5 @@ private:
 	std::vector<size_t> index_map_;
 	std::vector<size_t> free_indices_;
 };
-
-template <typename T, typename Store> [[nodiscard]]
-auto find(const Store& store, const T& value) -> std::optional<size_t> {
-	size_t index = 0;
-	for (auto value_ : store.get<T>()) {
-		if (value_ == value) { return index; };
-		index++;
-	}
-	return std::nullopt;
-}
-
-template <typename T, typename Pred, typename Store> [[nodiscard]]
-auto find(const Store& store, Pred&& pred) -> std::optional<size_t> {
-	size_t index = 0;
-	for (auto value : store.get<T>()) {
-		if (pred(value)) { return index; }
-		index++;
-	}
-	return std::nullopt;
-}
 
 } // ent
