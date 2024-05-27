@@ -59,7 +59,7 @@ for (auto& data : items.get<OtherData>()) {
 
 # dynamic_store
 
-items can also be erased. Some additional book-keeping is performed to achieve this, and calls to `get(index)` have one extra level of array indirection under the hood. Old indices may be reused.
+Items can also be erased. Some additional book-keeping is performed to achieve this, and calls to `get(index)` have one extra level of array indirection under the hood. Old indices may be reused.
 
 ```c++
 using Items = ent::dynamic_store<
