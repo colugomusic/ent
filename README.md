@@ -69,8 +69,8 @@ using Items = ent::dynamic_store<
 Items items;
 
 // Add items
-const auto item0 = items.push_back();
-const auto item1 = items.push_back();
+const auto item0 = items.add();
+const auto item1 = items.add();
 
 // Erase items
 items.erase(item0);
