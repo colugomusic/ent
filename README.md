@@ -5,20 +5,20 @@ struct SomeData {...};
 struct OtherData {...};
 struct MoreData {...};
 
-struct Thing {
+struct Item {
   SomeData some_data;
   OtherData other_data;
   MoreData more_data;
   ...
 };
 
-std::vector<Thing> things;
+std::vector<Item> items;
 ```
 
 This can be converted to a struct of arrays instead:
 
 ```c++
-struct Things {
+struct Items {
   std::vector<SomeData> some_data;
   std::vector<OtherData> other_data;
   std::vector<MoreData> more_data;
@@ -33,46 +33,46 @@ Keeping these arrays in sync is error-prone. This library provides the following
 Can be used for items that are only added, but never deleted.
 
 ```c++
-using Things = ent::static_store<
+using Items = ent::static_store<
   SomeData,
   OtherData,
   MoreData
 >;
 
-Thing things;
+Items items;
 
 // Add items
-const auto item0 = things.push_back();
-const auto item1 = things.push_back();
+const auto item0 = items.push_back();
+const auto item1 = items.push_back();
 
 // Access data
-things.get<SomeData>(index0) = {...};
-auto& data = things.get<MoreData>(index1);
+items.get<SomeData>(index0) = {...};
+auto& data = items.get<MoreData>(index1);
 
 // Iterate though one of the arrays
-for (auto& data : things.get<OtherData>()) {
+for (auto& data : items.get<OtherData>()) {
   ...
 }
 ```
 
 # dynamic_store
 
-Items can also be erased. Some additional book-keeping is performed to achieve this and calls to `get()` have one extra level of indirection under the hood. Old indices may be reused.
+items can also be erased. Some additional book-keeping is performed to achieve this and calls to `get()` have one extra level of indirection under the hood. Old indices may be reused.
 
 ```c++
-using Things = ent::dynamic_store<
+using Items = ent::dynamic_store<
   SomeData,
   OtherData,
   MoreData
 >;
 
-Thing things;
+Items items;
 
 // Add items
-const auto item0 = things.push_back();
-const auto item1 = things.push_back();
+const auto item0 = items.push_back();
+const auto item1 = items.push_back();
 
 // Erase items
-things.erase(item0);
-things.erase(item1);
+items.erase(item0);
+items.erase(item1);
 ```
