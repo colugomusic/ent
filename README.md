@@ -80,6 +80,6 @@ items.erase(item1);
 ```
 Here is a diagram showing what is happening under the hood, if there are 4 items in the store and the item at index 1 is erased:
 
-![soaerase](https://github.com/colugomusic/ent/assets/68328892/d95a3ab9-7c5d-467b-805e-54f589860640)
+![soaerase](https://github.com/colugomusic/ent/assets/68328892/e4b61736-26fe-4dd2-a4e4-22c82e29ef9e)
 
 The item being erased is always swapped with the last element. The affected indices are updated so that they point to the same data. The public index 1 is also added to a list of free indices so that it can be reused by further calls to `add()`.
