@@ -46,8 +46,8 @@ const auto item0 = items.push_back();
 const auto item1 = items.push_back();
 
 // Access data
-items.get<SomeData>(index0) = {...};
-auto& data = items.get<MoreData>(index1);
+items.get<SomeData>(item0) = {...};
+auto& data = items.get<MoreData>(item1);
 
 // Iterate though one of the arrays
 for (auto& data : items.get<OtherData>()) {
