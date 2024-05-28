@@ -46,6 +46,7 @@ struct static_store {
 		}
 		return std::nullopt;
 	}
+	template <typename T> auto set(size_t index, T&& value) -> void { get<T>(index) = std::forward<T>(value); }
 	template <typename T> [[nodiscard]] auto get() -> std::vector<T>& { return std::get<std::vector<T>>(data_); }
 	template <typename T> [[nodiscard]] auto get() const -> const std::vector<T>& { return std::get<std::vector<T>>(data_); }
 	template <typename T> [[nodiscard]] auto get(size_t index) -> T& { return std::get<std::vector<T>>(data_)[index]; }
@@ -137,6 +138,7 @@ struct dynamic_store {
 		}
 		return std::nullopt;
 	}
+	template <typename T> auto set(size_t index, T&& value) -> void { get<T>(index) = std::forward<T>(value); }
 	template <typename T> [[nodiscard]] auto get() -> std::vector<T>& { return std::get<dynamic_vec<T>>(data_).get(); }
 	template <typename T> [[nodiscard]] auto get() const -> const std::vector<T>& { return std::get<dynamic_vec<T>>(data_).get(); }
 	template <typename T> [[nodiscard]] auto get(size_t index) -> T& { return get<T>()[index_map_[index]]; }
