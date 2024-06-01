@@ -9,6 +9,11 @@ namespace ent {
 
 template <typename... Ts>
 struct static_store {
+	static_store() = default;
+	static_store(static_store<Ts...>&&) = default;
+	static_store(const static_store<Ts...>&) = delete;
+	static_store& operator=(static_store<Ts...>&&) = default;
+	static_store& operator=(const static_store<Ts...>&) = delete;
 	auto resize(size_t size) -> void {
 		if (size <= this->size()) {
 			return;
@@ -46,7 +51,7 @@ struct static_store {
 		}
 		return std::nullopt;
 	}
-	template <typename T> auto set(size_t index, T&& value) -> void { get<T>(index) = std::forward<T>(value); }
+	template <typename T> auto set(size_t index, T value) -> void { get<T>(index) = std::move(value); }
 	template <typename T> [[nodiscard]] auto get() -> std::vector<T>& { return std::get<std::vector<T>>(data_); }
 	template <typename T> [[nodiscard]] auto get() const -> const std::vector<T>& { return std::get<std::vector<T>>(data_); }
 	template <typename T> [[nodiscard]] auto get(size_t index) -> T& { return std::get<std::vector<T>>(data_)[index]; }
@@ -58,6 +63,11 @@ private:
 
 template <typename T>
 struct dynamic_vec {
+	dynamic_vec() = default;
+	dynamic_vec(dynamic_vec&&) = default;
+	dynamic_vec(const dynamic_vec&) = delete;
+	dynamic_vec& operator=(dynamic_vec&&) = default;
+	dynamic_vec& operator=(const dynamic_vec&) = delete;
 	auto erase(size_t index) -> void {
 		std::swap(data_[index], data_.back());
 	}
@@ -65,6 +75,9 @@ struct dynamic_vec {
 		const auto index = size();
 		data_.emplace_back();
 		return index;
+	}
+	auto reset(size_t index) -> void {
+		data_[index] = T{};
 	}
 	auto get() -> std::vector<T>& { return data_; }
 	auto get() const -> const std::vector<T>& { return data_; }
@@ -75,6 +88,11 @@ private:
 
 template <typename... Ts>
 struct dynamic_store {
+	dynamic_store() = default;
+	dynamic_store(dynamic_store<Ts...>&&) = default;
+	dynamic_store(const dynamic_store<Ts...>&) = delete;
+	dynamic_store& operator=(dynamic_store<Ts...>&&) = default;
+	dynamic_store& operator=(const dynamic_store<Ts...>&) = default;
 	auto add() -> size_t {
 		if (free_indices_.empty()) {
 			const auto index = size();
@@ -84,6 +102,7 @@ struct dynamic_store {
 			return index;
 		}
 		const auto index = free_indices_.back();
+		(std::get<dynamic_vec<Ts>>(data_).reset(index), ...);
 		free_indices_.pop_back();
 		size_++;
 		return index;
@@ -138,7 +157,7 @@ struct dynamic_store {
 		}
 		return std::nullopt;
 	}
-	template <typename T> auto set(size_t index, T&& value) -> void { get<T>(index) = std::forward<T>(value); }
+	template <typename T> auto set(size_t index, T value) -> void { get<T>(index) = std::move<T>(value); }
 	template <typename T> [[nodiscard]] auto get() -> std::vector<T>& { return std::get<dynamic_vec<T>>(data_).get(); }
 	template <typename T> [[nodiscard]] auto get() const -> const std::vector<T>& { return std::get<dynamic_vec<T>>(data_).get(); }
 	template <typename T> [[nodiscard]] auto get(size_t index) -> T& { return get<T>()[index_map_[index]]; }

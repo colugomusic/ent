@@ -2,6 +2,10 @@
 #include "doctest.h"
 #include "ent.hpp"
 
+struct S {
+	int value = 0;
+};
+
 TEST_CASE("static_store") {
 	ent::static_store<int, float> store;
 	REQUIRE(store.size() == 0);
@@ -40,7 +44,7 @@ TEST_CASE("static_store") {
 }
 
 TEST_CASE("dynamic_store") {
-	ent::dynamic_store<int, float> store;
+	ent::dynamic_store<int, float, S> store;
 	REQUIRE(store.size() == 0);
 	REQUIRE(!store.is_valid(0));
 	auto idx0 = store.add();
@@ -103,4 +107,14 @@ TEST_CASE("dynamic_store") {
 	REQUIRE(store.is_valid(idx2));
 	REQUIRE(store.get<int>(idx2) == 333);
 	REQUIRE(store.get<float>(idx2) == 333.3f);
+	store.get<S>(idx0) = S{111};
+	store.get<S>(idx1) = S{222};
+	store.get<S>(idx2) = S{333};
+	store.clear();
+	idx0 = store.add();
+	idx1 = store.add();
+	idx2 = store.add();
+	REQUIRE(store.get<S>(idx0).value == 0);
+	REQUIRE(store.get<S>(idx1).value == 0);
+	REQUIRE(store.get<S>(idx2).value == 0);
 }
