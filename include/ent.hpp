@@ -9,11 +9,6 @@ namespace ent {
 
 template <typename... Ts>
 struct static_store {
-	static_store() = default;
-	static_store(static_store<Ts...>&&) = default;
-	static_store(const static_store<Ts...>&) = delete;
-	static_store& operator=(static_store<Ts...>&&) = default;
-	static_store& operator=(const static_store<Ts...>&) = delete;
 	auto resize(size_t size) -> void {
 		if (size <= this->size()) {
 			return;
@@ -63,11 +58,6 @@ private:
 
 template <typename T>
 struct dynamic_vec {
-	dynamic_vec() = default;
-	dynamic_vec(dynamic_vec&&) = default;
-	dynamic_vec(const dynamic_vec&) = delete;
-	dynamic_vec& operator=(dynamic_vec&&) = default;
-	dynamic_vec& operator=(const dynamic_vec&) = delete;
 	auto erase(size_t index) -> void {
 		std::swap(data_[index], data_.back());
 	}
@@ -88,11 +78,6 @@ private:
 
 template <typename... Ts>
 struct dynamic_store {
-	dynamic_store() = default;
-	dynamic_store(dynamic_store<Ts...>&&) = default;
-	dynamic_store(const dynamic_store<Ts...>&) = delete;
-	dynamic_store& operator=(dynamic_store<Ts...>&&) = default;
-	dynamic_store& operator=(const dynamic_store<Ts...>&) = default;
 	auto add() -> size_t {
 		if (free_indices_.empty()) {
 			const auto index = size();
