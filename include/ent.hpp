@@ -87,7 +87,7 @@ struct dynamic_store {
 			return index;
 		}
 		const auto index = free_indices_.back();
-		(std::get<dynamic_vec<Ts>>(data_).reset(index), ...);
+		(std::get<dynamic_vec<Ts>>(data_).reset(index_map_[index]), ...);
 		free_indices_.pop_back();
 		size_++;
 		return index;
