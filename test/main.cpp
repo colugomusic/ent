@@ -117,4 +117,10 @@ TEST_CASE("dynamic_store") {
 	REQUIRE(store.get<S>(idx0).value == 0);
 	REQUIRE(store.get<S>(idx1).value == 0);
 	REQUIRE(store.get<S>(idx2).value == 0);
+	store.get<S>(idx1).value = 222;
+	REQUIRE(store.get<S>(idx1).value == 222);
+	store.erase(idx1);
+	REQUIRE(!store.is_valid(idx1));
+	idx1 = store.add();
+	REQUIRE(store.get<S>(idx1).value == 0);
 }
