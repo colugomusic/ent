@@ -58,8 +58,8 @@ private:
 
 template <typename T>
 struct dynamic_vec {
-	auto erase(size_t index) -> void {
-		std::swap(data_[index], data_.back());
+	auto swap(size_t a, size_t b) -> void {
+		std::swap(data_[a], data_[b]);
 	}
 	auto push_back() -> size_t {
 		const auto index = size();
@@ -99,7 +99,7 @@ struct dynamic_store {
 		size_ = 0;
 	}
 	auto erase(size_t index) -> void {
-		(std::get<dynamic_vec<Ts>>(data_).erase(index_map_[index]), ...);
+		(std::get<dynamic_vec<Ts>>(data_).swap(index_map_[index], index_map_.back()), ...);
 		std::swap(index_map_[index], index_map_.back());
 		free_indices_.push_back(index);
 		size_--;
