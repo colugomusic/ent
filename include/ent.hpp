@@ -99,7 +99,7 @@ struct dynamic_store {
 		size_ = 0;
 	}
 	auto erase(size_t index) -> void {
-		(std::get<dynamic_vec<Ts>>(data_).erase(index), ...);
+		(std::get<dynamic_vec<Ts>>(data_).erase(index_map_[index]), ...);
 		std::swap(index_map_[index], index_map_.back());
 		free_indices_.push_back(index);
 		size_--;

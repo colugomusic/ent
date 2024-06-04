@@ -123,4 +123,14 @@ TEST_CASE("dynamic_store") {
 	REQUIRE(!store.is_valid(idx1));
 	idx1 = store.add();
 	REQUIRE(store.get<S>(idx1).value == 0);
+	store.clear();
+	idx0 = store.add();
+	idx1 = store.add();
+	idx2 = store.add();
+	store.get<int>(idx0) = 111;
+	store.get<int>(idx1) = 222;
+	store.get<int>(idx2) = 333;
+	store.erase(idx2);
+	store.erase(idx0);
+	REQUIRE(store.get<int>(idx1) == 222);
 }
