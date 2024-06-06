@@ -8,7 +8,7 @@
 namespace ent {
 
 template <typename... Ts>
-struct static_store {
+struct table {
 	auto resize(size_t size) -> void {
 		if (size <= this->size()) {
 			return;
@@ -57,7 +57,7 @@ private:
 };
 
 template <typename T>
-struct dynamic_vec {
+struct flex_vec {
 	auto swap(size_t a, size_t b) -> void {
 		std::swap(data_[a], data_[b]);
 	}
@@ -77,17 +77,17 @@ private:
 };
 
 template <typename... Ts>
-struct dynamic_store {
+struct flex_table {
 	auto add() -> size_t {
 		if (free_indices_.empty()) {
 			const auto index = size();
-			(std::get<dynamic_vec<Ts>>(data_).push_back(), ...);
+			(std::get<flex_vec<Ts>>(data_).push_back(), ...);
 			index_map_.push_back(index);
 			size_++;
 			return index;
 		}
 		const auto index = free_indices_.back();
-		(std::get<dynamic_vec<Ts>>(data_).reset(index_map_[index]), ...);
+		(std::get<flex_vec<Ts>>(data_).reset(index_map_[index]), ...);
 		free_indices_.pop_back();
 		size_++;
 		return index;
@@ -99,7 +99,7 @@ struct dynamic_store {
 		size_ = 0;
 	}
 	auto erase(size_t index) -> void {
-		(std::get<dynamic_vec<Ts>>(data_).swap(index_map_[index], index_map_.back()), ...);
+		(std::get<flex_vec<Ts>>(data_).swap(index_map_[index], index_map_.back()), ...);
 		std::swap(index_map_[index], index_map_.back());
 		free_indices_.push_back(index);
 		size_--;
@@ -143,12 +143,12 @@ struct dynamic_store {
 		return std::nullopt;
 	}
 	template <typename T> auto set(size_t index, T value) -> void { get<T>(index) = std::move<T>(value); }
-	template <typename T> [[nodiscard]] auto get() -> std::vector<T>& { return std::get<dynamic_vec<T>>(data_).get(); }
-	template <typename T> [[nodiscard]] auto get() const -> const std::vector<T>& { return std::get<dynamic_vec<T>>(data_).get(); }
+	template <typename T> [[nodiscard]] auto get() -> std::vector<T>& { return std::get<flex_vec<T>>(data_).get(); }
+	template <typename T> [[nodiscard]] auto get() const -> const std::vector<T>& { return std::get<flex_vec<T>>(data_).get(); }
 	template <typename T> [[nodiscard]] auto get(size_t index) -> T& { return get<T>()[index_map_[index]]; }
 	template <typename T> [[nodiscard]] auto get(size_t index) const -> const T& { return get<T>()[index_map_[index]]; }
 private:
-	using Tuple = std::tuple<dynamic_vec<Ts>...>;
+	using Tuple = std::tuple<flex_vec<Ts>...>;
 	Tuple data_;
 	size_t size_ = 0;
 	std::vector<size_t> index_map_;

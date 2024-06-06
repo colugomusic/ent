@@ -6,8 +6,8 @@ struct S {
 	int value = 0;
 };
 
-TEST_CASE("static_store") {
-	ent::static_store<int, float> store;
+TEST_CASE("table") {
+	ent::table<int, float> store;
 	REQUIRE(store.size() == 0);
 	REQUIRE(!store.is_valid(0));
 	const auto idx0 = store.push_back();
@@ -43,8 +43,8 @@ TEST_CASE("static_store") {
 	REQUIRE(store.get<float>(idx1) == 222.2f);
 }
 
-TEST_CASE("dynamic_store") {
-	ent::dynamic_store<int, float, S> store;
+TEST_CASE("flex_table") {
+	ent::flex_table<int, float, S> store;
 	REQUIRE(store.size() == 0);
 	REQUIRE(!store.is_valid(0));
 	auto idx0 = store.add();
