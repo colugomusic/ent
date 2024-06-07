@@ -30,12 +30,12 @@ Items items;
 
 Keeping these arrays in sync is error-prone. This library provides the following data structures:
 
-# static_store
+# table
 
 Can be used for items that are only added, but never deleted.
 
 ```c++
-using Items = ent::static_store<
+using Items = ent::table<
   SomeData,
   OtherData,
   MoreData
@@ -57,12 +57,12 @@ for (auto& data : items.get<OtherData>()) {
 }
 ```
 
-# dynamic_store
+# flex_table
 
 Items can also be erased. Some additional book-keeping is performed to achieve this, and calls to `get(index)` have one extra level of array indirection under the hood. Old indices may be reused.
 
 ```c++
-using Items = ent::dynamic_store<
+using Items = ent::flex_table<
   SomeData,
   OtherData,
   MoreData
