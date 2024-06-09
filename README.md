@@ -86,4 +86,39 @@ The item being erased is always swapped with the last element. The affected indi
 
 # sparse_table
 
-This one is implemented as a linked list of fixed-size arrays. The advantage of this is that read access is thread-safe. A disadvantage is that "erased" elements are not swapped to the end, so iterating over the entire container may result in these "dead" elements being visited.
+This one is implemented as a linked list of fixed-size arrays. The advantage of this is that read access is thread-safe. A disadvantage is that "erased" elements are not swapped to the end, so iterating over the entire container may result in these "dead" elements being visited. Therefore an interface just isn't provided for doing that.
+
+```c++
+using Items = ent::sparse_table<
+  SomeData,
+  OtherData,
+  MoreData
+>;
+
+Items items;
+
+...
+
+void write_thread() {
+  // Add items
+  const auto item0 = items.add();
+  const auto item1 = items.add();
+  
+  ...
+  
+  // Erase items
+  items.erase(item0);
+  items.erase(item1);
+}
+
+...
+
+void read_thread(size_t item_index) {
+  // Assuming this item_index is known to be valid,
+  // reading the data structure while it is being
+  // modified in the other thread is not a data race.
+  // Multiple readers are supported. This is all
+  // lock-free.
+  const auto value = items.get<SomeData>(item_index);
+}
+```
