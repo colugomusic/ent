@@ -1,6 +1,7 @@
 #pragma once
 
 #include <array>
+#include <atomic>
 #include <list>
 #include <numeric>
 #include <optional>
@@ -159,6 +160,8 @@ private:
 
 template <size_t BlockSize, typename... Ts>
 struct sparse_block {
+	auto get_next() const { return next_; }
+	auto set_next(sparse_block<BlockSize, Ts...>* next) -> void { next_ = next; }
 	template <typename T> auto reset(size_t elem_index) -> void                       { get<T>(elem_index) = T{}; }
 	template <typename T> auto set(size_t elem_index, T value) -> void                { get<T>(index) = std::move<T>(value); }
 	template <typename T> [[nodiscard]] auto get(size_t elem_index) -> T&             { return std::get<std::array<T, BlockSize>>(data_)[elem_index % BlockSize]; }
@@ -166,46 +169,68 @@ struct sparse_block {
 private:
 	using Tuple = std::tuple<std::array<Ts, BlockSize>...>;
 	Tuple data_;
+	sparse_block<BlockSize, Ts...>* next_ = nullptr;
 };
 
 template <size_t BlockSize, typename... Ts>
 struct sparse_table {
+	using block_t = sparse_block<BlockSize, Ts...>;
+	sparse_table() : first_{new block_t}, last_{first_} {}
+	~sparse_table() {
+		auto block = first_;
+		while (block) {
+			const auto next = block->get_next();
+			delete block;
+			block = next;
+		}
+	}
 	auto add() -> size_t {
 		if (free_indices_.empty()) {
 			free_indices_.resize(BlockSize);
-			std::iota(free_indices_.rbegin(), free_indices_.rend(), BlockSize * blocks_.size());
-			blocks_.emplace_back();
+			std::iota(free_indices_.rbegin(), free_indices_.rend(), BlockSize * block_count_);
+			const auto new_block = new block_t;
+			last_->set_next(new_block);
+			last_ = new_block;
+			block_count_++;
 		}
 		const auto idx = free_indices_.back();
 		free_indices_.pop_back();
 		(get_block(idx).reset<Ts>(idx), ...);
+		elem_count_++;
 		return idx;
 	}
 	auto erase(size_t index) -> void {
 		free_indices_.push_back(index);
+		elem_count_--;
 	}
 	auto clear() -> void {
-		free_indices_.resize(BlockSize * blocks_.size());
+		free_indices_.resize(BlockSize * block_count_);
 		std::iota(free_indices_.rbegin(), free_indices_.rend(), 0);
+		elem_count_ = 0;
 	}
 	auto size() const -> size_t {
-		return (blocks_.size() * BlockSize) - free_indices_.size();
+		return elem_count_;
 	}
 	template <typename T> auto set(size_t index, T value) -> void                { get_block(index).set(index, std::move<T>(value)); }
 	template <typename T> [[nodiscard]] auto get(size_t index) -> T&             { return get_block(index).get<T>(index); }
 	template <typename T> [[nodiscard]] auto get(size_t index) const -> const T& { return get_block(index).get<T>(index); }
 private:
-	auto get_block(size_t index) -> sparse_block<BlockSize, Ts...>&             {
-		auto pos = blocks_.begin();
-		std::advance(pos, index / BlockSize);
-		return *pos;
+	auto get_block(size_t index) -> sparse_block<BlockSize, Ts...>& {
+		const auto block_index = index / BlockSize;
+		auto block = first_;
+		for (size_t i = 0; i < block_index; ++i) { block = block->get_next(); }
+		return *block;
 	}
 	auto get_block(size_t index) const -> const sparse_block<BlockSize, Ts...>& {
-		auto pos = blocks_.begin();
-		std::advance(pos, index / BlockSize);
-		return *pos;
+		const auto block_index = index / BlockSize;
+		auto block = first_;
+		for (size_t i = 0; i < block_index; ++i) { block = block->get_next(); }
+		return *block;
 	}
-	std::list<sparse_block<BlockSize, Ts...>> blocks_;
+	block_t* first_;
+	block_t* last_;
+	std::atomic<size_t> block_count_;
+	std::atomic<size_t> elem_count_;
 	std::vector<size_t> free_indices_;
 };
 
