@@ -1,5 +1,6 @@
 #pragma once
 
+#include <array>
 #include <list>
 #include <numeric>
 #include <optional>
@@ -158,6 +159,7 @@ private:
 
 template <size_t BlockSize, typename... Ts>
 struct sparse_block {
+	template <typename T> auto reset(size_t elem_index) -> void                       { get<T>(elem_index) = T{}; }
 	template <typename T> auto set(size_t elem_index, T value) -> void                { get<T>(index) = std::move<T>(value); }
 	template <typename T> [[nodiscard]] auto get(size_t elem_index) -> T&             { return std::get<std::array<T, BlockSize>>(data_)[elem_index % BlockSize]; }
 	template <typename T> [[nodiscard]] auto get(size_t elem_index) const -> const T& { return std::get<std::array<T, BlockSize>>(data_)[elem_index % BlockSize]; }
@@ -176,6 +178,7 @@ struct sparse_table {
 		}
 		const auto idx = free_indices_.back();
 		free_indices_.pop_back();
+		(get_block(idx).reset<Ts>(idx), ...);
 		return idx;
 	}
 	auto erase(size_t index) -> void {
@@ -192,8 +195,16 @@ struct sparse_table {
 	template <typename T> [[nodiscard]] auto get(size_t index) -> T&             { return get_block(index).get<T>(index); }
 	template <typename T> [[nodiscard]] auto get(size_t index) const -> const T& { return get_block(index).get<T>(index); }
 private:
-	auto get_block(size_t index) -> sparse_block<BlockSize, Ts...>&             { return blocks_[index / BlockSize]; }
-	auto get_block(size_t index) const -> const sparse_block<BlockSize, Ts...>& { return blocks_[index / BlockSize]; }
+	auto get_block(size_t index) -> sparse_block<BlockSize, Ts...>&             {
+		auto pos = blocks_.begin();
+		std::advance(pos, index / BlockSize);
+		return *pos;
+	}
+	auto get_block(size_t index) const -> const sparse_block<BlockSize, Ts...>& {
+		auto pos = blocks_.begin();
+		std::advance(pos, index / BlockSize);
+		return *pos;
+	}
 	std::list<sparse_block<BlockSize, Ts...>> blocks_;
 	std::vector<size_t> free_indices_;
 };
