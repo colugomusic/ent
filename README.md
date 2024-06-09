@@ -86,4 +86,4 @@ The item being erased is always swapped with the last element. The affected indi
 
 # sparse_table
 
-This one is implemented as a linked list of fixed-size arrays. The advantage of this is that read access is thread-safe.
+This one is implemented as a linked list of fixed-size arrays. The advantage of this is that read access is thread-safe. The disadvantage is the underlying arrays may have holes in them.
