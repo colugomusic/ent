@@ -196,20 +196,14 @@ struct sparse_table {
 		const auto idx = free_indices_.back();
 		free_indices_.pop_back();
 		(get_block(idx).reset<Ts>(idx), ...);
-		elem_count_++;
 		return idx;
 	}
 	auto erase(size_t index) -> void {
 		free_indices_.push_back(index);
-		elem_count_--;
 	}
 	auto clear() -> void {
 		free_indices_.resize(BlockSize * block_count_);
 		std::iota(free_indices_.rbegin(), free_indices_.rend(), 0);
-		elem_count_ = 0;
-	}
-	auto size() const -> size_t {
-		return elem_count_;
 	}
 	template <typename T> auto set(size_t index, T value) -> void                { get_block(index).set(index, std::move<T>(value)); }
 	template <typename T> [[nodiscard]] auto get(size_t index) -> T&             { return get_block(index).get<T>(index); }
@@ -229,8 +223,7 @@ private:
 	}
 	block_t* first_;
 	block_t* last_;
-	std::atomic<size_t> block_count_;
-	std::atomic<size_t> elem_count_;
+	size_t block_count_ = 0;
 	std::vector<size_t> free_indices_;
 };
 
