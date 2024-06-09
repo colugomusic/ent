@@ -83,3 +83,7 @@ Here is a diagram showing what is happening under the hood, if there are 4 items
 ![soaerase](https://github.com/colugomusic/ent/assets/68328892/e4b61736-26fe-4dd2-a4e4-22c82e29ef9e)
 
 The item being erased is always swapped with the last element. The affected indices are updated so that they point to the same data. The public index 1 is also added to a list of free indices so that it can be reused by further calls to `add()`. The new public size of the data store after the operation is 3.
+
+# sparse_table
+
+This one is implemented as a linked list of fixed-size arrays. The advantage of this is that read access is thread-safe. A disadvantage is that "erased" elements are not swapped to the end, so iterating over the entire container may result in these "dead" elements being visited.
