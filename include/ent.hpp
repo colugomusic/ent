@@ -220,68 +220,88 @@ struct block_array {
 			visit_fn(data_[i]);
 		}
 	}
+	auto operator[](size_t index) -> T&             { return data_[index]; }
+	auto operator[](size_t index) const -> const T& { return data_[index]; }
 private:
 	std::array<T, BlockSize> data_;
 };
 
 template <size_t BlockSize, typename... Ts>
 struct block {
-	auto swap(size_t a, size_t b) -> void {
-		(std::get<block_array<BlockSize, Ts>>(data_).swap(a, b), ...);
+	block() {
+		std::iota(index_map_.begin(), index_map_.end(), 0);
 	}
-	template <typename T, typename VisitFn> auto visit(const VisitFn& visit_fn, size_t n) -> void {
-		std::get<block_array<BlockSize, T>>(data_).visit(visit_fn, n);
+	auto add() -> size_t {
+		const auto idx = size_;
+		(reset<Ts>(idx), ...);
+		size_++;
+		return idx;
 	}
-	template <typename T> auto reset(size_t index) -> void                       { get<T>(index) = T{}; }
+	auto clear() -> void {
+		size_ = 0;
+	}
+	auto erase(size_t index) -> void {
+		(std::get<block_array<BlockSize, Ts>>(data_).swap(index_map_[index], size_), ...);
+		std::swap(index_map_[index], index_map_[size_]);
+		size_--;
+	}
+	template <typename T, typename VisitFn>
+	auto visit(const VisitFn& visit_fn) -> void {
+		std::get<block_array<BlockSize, T>>(data_).visit(visit_fn, size_);
+	}
+	auto size() const -> size_t { return size_; }
 	template <typename T> auto set(size_t index, T value) -> void                { get<T>(index) = std::move<T>(value); }
-	template <typename T> [[nodiscard]] auto get(size_t index) -> T&             { return std::get<block_array<T, BlockSize>>(data_)[index]; }
-	template <typename T> [[nodiscard]] auto get(size_t index) const -> const T& { return std::get<block_array<T, BlockSize>>(data_)[index]; }
+	template <typename T> [[nodiscard]] auto get(size_t index) -> T&             { return std::get<block_array<BlockSize, T>>(data_)[index_map_[index]]; }
+	template <typename T> [[nodiscard]] auto get(size_t index) const -> const T& { return std::get<block_array<BlockSize, T>>(data_)[index_map_[index]]; }
 private:
+	template <typename T> auto reset(size_t index) -> void { get<T>(index) = T{}; }
 	using Tuple = std::tuple<block_array<BlockSize, Ts>...>;
 	Tuple data_;
+	size_t size_ = 0;
+	std::array<size_t, BlockSize> index_map_;
 };
 
 template <size_t BlockSize, typename... Ts>
 struct block_table {
 	auto add() -> size_t {
-		for (size_t i = 0; i < blocks_.size(); i++) {
-			if (block_sizes_[i] < BlockSize) {
-				const auto idx = (i * BlockSize) + block_sizes_[i]++;
-				(get_block(idx).reset<Ts>(idx), ...);
-				return idx;
+		size_t block_index = 0;
+		for (auto& block : blocks_) {
+			if (block.size() < BlockSize) {
+				return block_index * BlockSize + block.add();
 			}
 		}
-		const auto idx = blocks_.size() * BlockSize;
-		blocks_.emplace_back();
-		block_sizes_.push_back(1);
-		(get_block(idx).reset<Ts>(idx), ...);
-		return idx;
+		return (blocks_.size() * BlockSize) + add_block().add();
 	}
 	auto erase(size_t elem_index) -> void {
 		const auto block_index = elem_index / BlockSize;
-		const auto block_size  = get_block_size(elem_index);
 		const auto array_index = elem_index % BlockSize;
-		(get_block(elem_index).swap(array_index, block_size - 1), ...);
-		block_sizes_[block_index]--;
+		get_block(elem_index).erase(array_index);
 	}
 	auto clear() -> void {
-		std::fill(block_sizes_.begin(), block_sizes_.end(), 0);
+		for (auto& block : blocks_) {
+			block.clear();
+		}
 	}
 	auto size() const -> size_t {
-		return std::accumulate(block_sizes_.begin(), block_sizes_.end(), 0);
+		return std::accumulate(blocks_.begin(), blocks_.end(), size_t(0), [](size_t acc, const auto& block) {
+			return acc + block.size();
+		});
 	}
 	template <typename T, typename VisitFn>
 	auto visit(const VisitFn& visit_fn) -> void {
-		size_t block_index = 0;
 		for (auto& block : blocks_) {
-			block.visit<T>(visit_fn, block_sizes_[block_index++]);
+			block.visit<T>(visit_fn);
 		}
 	}
 	template <typename T> auto set(size_t elem_index, T value) -> void                { get_block(elem_index).set(elem_index, std::move<T>(value)); }
 	template <typename T> [[nodiscard]] auto get(size_t elem_index) -> T&             { return get_block(elem_index).get<T>(elem_index % BlockSize); }
 	template <typename T> [[nodiscard]] auto get(size_t elem_index) const -> const T& { return get_block(elem_index).get<T>(elem_index % BlockSize); }
 private:
-	auto get_block(size_t elem_index) -> sparse_block<BlockSize, Ts...>&             {
+	auto add_block() -> decltype(auto) {
+		blocks_.emplace_back();
+		return blocks_.back();
+	}
+	auto get_block(size_t elem_index) -> block<BlockSize, Ts...>&             {
 		auto pos = blocks_.begin();
 		std::advance(pos, elem_index / BlockSize);
 		return *pos;
@@ -291,11 +311,7 @@ private:
 		std::advance(pos, elem_index / BlockSize);
 		return *pos;
 	}
-	auto get_block_size(size_t elem_index) const -> size_t {
-		return block_sizes_[elem_index / BlockSize];
-	}
 	std::list<block<BlockSize, Ts...>> blocks_;
-	std::vector<size_t> block_sizes_;
 };
 
 } // ent
