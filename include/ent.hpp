@@ -209,6 +209,7 @@ private:
 	std::vector<size_t> free_indices_;
 };
 
+/*
 template <size_t BlockSize, typename T>
 struct block_array {
 	auto swap(size_t a, size_t b) -> void {
@@ -313,5 +314,6 @@ private:
 	}
 	std::list<block<BlockSize, Ts...>> blocks_;
 };
+*/
 
 } // ent
