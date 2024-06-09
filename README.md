@@ -86,7 +86,7 @@ The item being erased is always swapped with the last element. The affected indi
 
 # sparse_table
 
-This one is implemented as a linked list of fixed-size arrays. The advantage of this is that read access is thread-safe. A disadvantage is that "erased" elements are not swapped to the end, so iterating over the entire container may result in these "dead" elements being visited. Therefore an interface just isn't provided for doing that.
+This one is implemented as a linked list of fixed-size arrays. The advantage of this is that read access is thread-safe, i.e. the underlying arrays are a fixed size and won't be randomly re-allocated when elements are inserted. Interestingly this can be achieved completely lock-free even without using any atomics! Though the interface is quite restricted (For example I deliberately don't provide a `size()` as I think that would require an atomic to keep track of the number of elements.) Another disadvantage is that "erased" elements are not swapped to the end of their respective arrays, so iterating over the entire container may result in these "dead" elements being visited. Therefore an interface just isn't provided for doing that.
 
 ```c++
 using Items = ent::sparse_table<
@@ -103,8 +103,6 @@ void write_thread() {
   // Add items
   const auto item0 = items.add();
   const auto item1 = items.add();
-  
-  ...
   
   // Erase items
   items.erase(item0);
