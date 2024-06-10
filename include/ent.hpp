@@ -176,22 +176,12 @@ template <size_t BlockSize, typename... Ts>
 struct sparse_table {
 	using block_t = sparse_block<BlockSize, Ts...>;
 	sparse_table() : first_{new block_t}, last_{first_} {}
-	~sparse_table() {
-		auto block = first_;
-		while (block) {
-			const auto next = block->get_next();
-			delete block;
-			block = next;
-		}
-	}
+	~sparse_table() { erase_blocks(); }
 	auto add() -> size_t {
 		if (free_indices_.empty()) {
 			free_indices_.resize(BlockSize);
 			std::iota(free_indices_.rbegin(), free_indices_.rend(), BlockSize * block_count_);
-			const auto new_block = new block_t;
-			last_->set_next(new_block);
-			last_ = new_block;
-			block_count_++;
+			add_block();
 		}
 		const auto idx = free_indices_.back();
 		free_indices_.pop_back();
@@ -209,6 +199,20 @@ struct sparse_table {
 	template <typename T> [[nodiscard]] auto get(size_t index) -> T&             { return get_block(index).get<T>(index); }
 	template <typename T> [[nodiscard]] auto get(size_t index) const -> const T& { return get_block(index).get<T>(index); }
 private:
+	auto add_block() -> void {
+		const auto new_block = new block_t;
+		last_->set_next(new_block);
+		last_ = new_block;
+		block_count_++;
+	}
+	auto erase_blocks() -> void {
+		auto block = first_;
+		while (block) {
+			const auto next = block->get_next();
+			delete block;
+			block = next;
+		}
+	}
 	auto get_block(size_t index) -> sparse_block<BlockSize, Ts...>& {
 		const auto block_index = index / BlockSize;
 		auto block = first_;
