@@ -163,7 +163,7 @@ struct sparse_block {
 	auto get_next() const { return next_; }
 	auto set_next(sparse_block<BlockSize, Ts...>* next) -> void { next_ = next; }
 	template <typename T> auto reset(size_t elem_index) -> void                       { get<T>(elem_index) = T{}; }
-	template <typename T> auto set(size_t elem_index, T value) -> void                { get<T>(index) = std::move<T>(value); }
+	template <typename T> auto set(size_t elem_index, T value) -> void                { get<T>(elem_index) = std::move<T>(value); }
 	template <typename T> [[nodiscard]] auto get(size_t elem_index) -> T&             { return std::get<std::array<T, BlockSize>>(data_)[elem_index % BlockSize]; }
 	template <typename T> [[nodiscard]] auto get(size_t elem_index) const -> const T& { return std::get<std::array<T, BlockSize>>(data_)[elem_index % BlockSize]; }
 private:
@@ -185,7 +185,7 @@ struct sparse_table {
 		}
 		const auto idx = free_indices_.back();
 		free_indices_.pop_back();
-		(get_block(idx).reset<Ts>(idx), ...);
+		(get_block(idx).template reset<Ts>(idx), ...);
 		return idx;
 	}
 	auto erase(size_t index) -> void {
@@ -196,8 +196,8 @@ struct sparse_table {
 		std::iota(free_indices_.rbegin(), free_indices_.rend(), 0);
 	}
 	template <typename T> auto set(size_t index, T value) -> void                { get_block(index).set(index, std::move<T>(value)); }
-	template <typename T> [[nodiscard]] auto get(size_t index) -> T&             { return get_block(index).get<T>(index); }
-	template <typename T> [[nodiscard]] auto get(size_t index) const -> const T& { return get_block(index).get<T>(index); }
+	template <typename T> [[nodiscard]] auto get(size_t index) -> T&             { return get_block(index).template get<T>(index); }
+	template <typename T> [[nodiscard]] auto get(size_t index) const -> const T& { return get_block(index).template get<T>(index); }
 private:
 	auto add_block() -> void {
 		const auto new_block = new block_t;
