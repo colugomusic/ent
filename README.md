@@ -94,6 +94,7 @@ Another disadvantage is that "erased" elements are not swapped to the end of the
 
 ```c++
 using Items = ent::sparse_table<
+  500, // the size of the underlying arrays, in elements
   SomeData,
   OtherData,
   MoreData
