@@ -1,7 +1,6 @@
 #pragma once
 
 #include <array>
-#include <atomic>
 #include <list>
 #include <numeric>
 #include <optional>
