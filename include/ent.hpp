@@ -1,6 +1,7 @@
 #pragma once
 
 #include <array>
+#include <bitset>
 #include <list>
 #include <numeric>
 #include <optional>
@@ -159,16 +160,49 @@ private:
 
 template <size_t BlockSize, typename... Ts>
 struct sparse_block {
-	auto get_next() const { return next_; }
-	auto set_next(sparse_block<BlockSize, Ts...>* next) -> void { next_ = next; }
-	template <typename T> auto reset(size_t elem_index) -> void                       { get<T>(elem_index) = T{}; }
+	[[nodiscard]]
+	auto get_next() const {
+		return next_;
+	}
+	[[nodiscard]]
+	auto is_alive(size_t elem_index) const -> bool {
+		return alive_flags_[elem_index % BlockSize];
+	}
+	[[nodiscard]]
+	auto get_living_elements() const -> std::vector<size_t> {
+		std::vector<size_t> indices;
+		for (size_t i = 0; i < BlockSize; ++i) {
+			if (alive_flags_[i]) {
+				indices.push_back(i);
+			}
+		}
+		return indices;
+	}
+	auto set_next(sparse_block<BlockSize, Ts...>* next) -> void {
+		next_ = next;
+	}
+	auto kill(size_t elem_index) -> void {
+		alive_flags_.reset(elem_index % BlockSize);
+	}
+	auto kill_all() -> void {
+		alive_flags_.reset();
+	}
+	auto revive(size_t elem_index) -> void {
+		(reset<Ts>(elem_index), ...);
+		alive_flags_.set(elem_index % BlockSize);
+	}
 	template <typename T> auto set(size_t elem_index, T value) -> void                { get<T>(elem_index) = std::move<T>(value); }
 	template <typename T> [[nodiscard]] auto get(size_t elem_index) -> T&             { return std::get<std::array<T, BlockSize>>(data_)[elem_index % BlockSize]; }
 	template <typename T> [[nodiscard]] auto get(size_t elem_index) const -> const T& { return std::get<std::array<T, BlockSize>>(data_)[elem_index % BlockSize]; }
 private:
+	template <typename T>
+	auto reset(size_t elem_index) -> void {
+		get<T>(elem_index % BlockSize) = T{};
+	}
 	using Tuple = std::tuple<std::array<Ts, BlockSize>...>;
 	Tuple data_;
 	sparse_block<BlockSize, Ts...>* next_ = nullptr;
+	std::bitset<BlockSize> alive_flags_;
 };
 
 template <size_t BlockSize, typename... Ts>
@@ -176,6 +210,7 @@ struct sparse_table {
 	using block_t = sparse_block<BlockSize, Ts...>;
 	sparse_table() : first_{new block_t}, last_{first_} {}
 	~sparse_table() { erase_blocks(); }
+	[[nodiscard]]
 	auto add() -> size_t {
 		if (free_indices_.empty()) {
 			free_indices_.resize(BlockSize);
@@ -184,11 +219,27 @@ struct sparse_table {
 		}
 		const auto idx = free_indices_.back();
 		free_indices_.pop_back();
-		(get_block(idx).template reset<Ts>(idx), ...);
+		get_block(idx).revive(idx);
 		return idx;
 	}
-	auto erase(size_t index) -> void {
-		free_indices_.push_back(index);
+	[[nodiscard]]
+	auto is_alive(size_t elem_index) const -> bool {
+		return get_block(elem_index).is_alive(elem_index);
+	}
+	[[nodiscard]]
+	auto get_living_elements() const -> std::vector<size_t> {
+		std::vector<size_t> out;
+		auto block = first_;
+		while (block) {
+			auto living_elements = block->get_living_elements();
+			std::copy(living_elements.begin(), living_elements.end(), std::back_inserter(out));
+			block = block->get_next();
+		}
+		return out;
+	}
+	auto erase(size_t elem_index) -> void {
+		get_block(elem_index).kill(elem_index);
+		free_indices_.push_back(elem_index);
 	}
 	auto clear() -> void {
 		free_indices_.resize(BlockSize * block_count_);
@@ -212,14 +263,14 @@ private:
 			block = next;
 		}
 	}
-	auto get_block(size_t index) -> sparse_block<BlockSize, Ts...>& {
-		const auto block_index = index / BlockSize;
+	auto get_block(size_t elem_index) -> sparse_block<BlockSize, Ts...>& {
+		const auto block_index = elem_index / BlockSize;
 		auto block = first_;
 		for (size_t i = 0; i < block_index; ++i) { block = block->get_next(); }
 		return *block;
 	}
-	auto get_block(size_t index) const -> const sparse_block<BlockSize, Ts...>& {
-		const auto block_index = index / BlockSize;
+	auto get_block(size_t elem_index) const -> const sparse_block<BlockSize, Ts...>& {
+		const auto block_index = elem_index / BlockSize;
 		auto block = first_;
 		for (size_t i = 0; i < block_index; ++i) { block = block->get_next(); }
 		return *block;
