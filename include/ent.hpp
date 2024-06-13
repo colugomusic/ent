@@ -168,15 +168,12 @@ struct sparse_block {
 	auto is_alive(size_t elem_index) const -> bool {
 		return alive_flags_[elem_index % BlockSize];
 	}
-	[[nodiscard]]
-	auto get_living_elements() const -> std::vector<size_t> {
-		std::vector<size_t> indices;
+	auto get_living_elements(std::vector<size_t>* out) const -> void {
 		for (size_t i = 0; i < BlockSize; ++i) {
 			if (alive_flags_[i]) {
-				indices.push_back(i);
+				out->push_back(i);
 			}
 		}
-		return indices;
 	}
 	auto set_next(sparse_block<BlockSize, Ts...>* next) -> void {
 		next_ = next;
@@ -226,24 +223,29 @@ struct sparse_table {
 	auto is_alive(size_t elem_index) const -> bool {
 		return get_block(elem_index).is_alive(elem_index);
 	}
-	[[nodiscard]]
-	auto get_living_elements() const -> std::vector<size_t> {
-		std::vector<size_t> out;
+	auto get_living_elements(std::vector<size_t>* out) const -> void {
+		out->clear();
 		auto block = first_;
 		while (block) {
-			auto living_elements = block->get_living_elements();
-			std::copy(living_elements.begin(), living_elements.end(), std::back_inserter(out));
+			block->get_living_elements(out);
 			block = block->get_next();
 		}
-		return out;
 	}
 	auto erase(size_t elem_index) -> void {
 		get_block(elem_index).kill(elem_index);
 		free_indices_.push_back(elem_index);
 	}
 	auto clear() -> void {
+		auto block = first_;
+		while (block) {
+			block->kill_all();
+			block = block->get_next();
+		}
 		free_indices_.resize(BlockSize * block_count_);
 		std::iota(free_indices_.rbegin(), free_indices_.rend(), 0);
+	}
+	auto size() const -> size_t {
+		return (block_count_ * BlockSize) - free_indices_.size();
 	}
 	template <typename T> auto set(size_t index, T value) -> void                { get_block(index).set(index, std::move<T>(value)); }
 	template <typename T> [[nodiscard]] auto get(size_t index) -> T&             { return get_block(index).template get<T>(index); }
