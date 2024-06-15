@@ -279,7 +279,7 @@ private:
 	}
 	block_t* first_;
 	block_t* last_;
-	size_t block_count_ = 0;
+	size_t block_count_ = 1;
 	std::vector<size_t> free_indices_;
 };
 
