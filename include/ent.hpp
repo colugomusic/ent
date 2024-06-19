@@ -189,7 +189,10 @@ struct sparse_block {
 		(reset<Ts>(elem_index), ...);
 		alive_flags_.set(elem_index % BlockSize);
 	}
-	template <typename T> auto set(size_t elem_index, T value) -> void                { get<T>(elem_index) = std::move<T>(value); }
+	template <typename T>
+	auto set(size_t elem_index, T&& value) -> void {
+		get<std::decay_t<T>>(elem_index) = std::forward<T>(value);
+	}
 	template <typename T> [[nodiscard]] auto get(size_t elem_index) -> T&             { return std::get<std::array<T, BlockSize>>(data_)[elem_index % BlockSize]; }
 	template <typename T> [[nodiscard]] auto get(size_t elem_index) const -> const T& { return std::get<std::array<T, BlockSize>>(data_)[elem_index % BlockSize]; }
 private:
@@ -206,7 +209,12 @@ private:
 template <size_t BlockSize, typename... Ts>
 struct sparse_table {
 	using block_t = sparse_block<BlockSize, Ts...>;
-	sparse_table() : first_{new block_t}, last_{first_} {}
+	sparse_table()
+		: first_{new block_t}, last_{first_}
+	{
+		free_indices_.resize(BlockSize);
+		std::iota(free_indices_.rbegin(), free_indices_.rend(), 0);
+	}
 	~sparse_table() { erase_blocks(); }
 	[[nodiscard]]
 	auto add() -> size_t {
@@ -248,7 +256,7 @@ struct sparse_table {
 	auto size() const -> size_t {
 		return (block_count_ * BlockSize) - free_indices_.size();
 	}
-	template <typename T> auto set(size_t index, T value) -> void                { get_block(index).set(index, std::move<T>(value)); }
+	template <typename T> auto set(size_t index, T&& value) -> void              { get_block(index).set(index, std::forward<T>(value)); }
 	template <typename T> [[nodiscard]] auto get(size_t index) -> T&             { return get_block(index).template get<T>(index); }
 	template <typename T> [[nodiscard]] auto get(size_t index) const -> const T& { return get_block(index).template get<T>(index); }
 private:
