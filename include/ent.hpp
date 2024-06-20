@@ -50,7 +50,10 @@ struct table {
 		}
 		return std::nullopt;
 	}
-	template <typename T> auto set(size_t index, T value) -> void { get<T>(index) = std::move(value); }
+	template <typename T>
+	auto set(size_t index, T&& value) -> void {
+		get<std::decay_t<T>>(index) = std::forward<T>(value);
+	}
 	template <typename T> [[nodiscard]] auto get() -> std::vector<T>& { return std::get<std::vector<T>>(data_); }
 	template <typename T> [[nodiscard]] auto get() const -> const std::vector<T>& { return std::get<std::vector<T>>(data_); }
 	template <typename T> [[nodiscard]] auto get(size_t index) -> T& { return std::get<std::vector<T>>(data_)[index]; }
@@ -146,7 +149,10 @@ struct flex_table {
 		}
 		return std::nullopt;
 	}
-	template <typename T> auto set(size_t index, T value) -> void { get<T>(index) = std::move<T>(value); }
+	template <typename T>
+	auto set(size_t index, T&& value) -> void {
+		get<std::decay_t<T>>(index) = std::forward<T>(value);
+	}
 	template <typename T> [[nodiscard]] auto get() -> std::vector<T>&             { return std::get<flex_vec<T>>(data_).get(); }
 	template <typename T> [[nodiscard]] auto get() const -> const std::vector<T>& { return std::get<flex_vec<T>>(data_).get(); }
 	template <typename T> [[nodiscard]] auto get(size_t index) -> T&              { return get<T>()[index_map_[index]]; }
