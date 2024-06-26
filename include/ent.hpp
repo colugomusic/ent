@@ -7,6 +7,7 @@
 #include <numeric>
 #include <optional>
 #include <tuple>
+#include <type_traits>
 #include <vector>
 
 namespace ent {
@@ -204,7 +205,9 @@ struct sparse_block {
 private:
 	template <typename T>
 	auto reset(size_t elem_index) -> void {
-		get<T>(elem_index % BlockSize) = T{};
+		if constexpr (std::is_copy_assignable_v<T>) {
+			get<T>(elem_index % BlockSize) = T{};
+		}
 	}
 	using Tuple = std::tuple<std::array<Ts, BlockSize>...>;
 	Tuple data_;
