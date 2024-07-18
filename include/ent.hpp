@@ -197,8 +197,8 @@ struct sparse_block {
 		alive_flags_.set(elem_index % BlockSize);
 	}
 	template <typename T>
-	auto set(size_t elem_index, T&& value) -> void {
-		get<std::decay_t<T>>(elem_index) = std::forward<T>(value);
+	auto set(size_t elem_index, T&& value) -> T& {
+		return get<std::decay_t<T>>(elem_index) = std::forward<T>(value);
 	}
 	template <typename T> [[nodiscard]] auto get(size_t elem_index) -> T&             { return std::get<std::array<T, BlockSize>>(data_)[elem_index % BlockSize]; }
 	template <typename T> [[nodiscard]] auto get(size_t elem_index) const -> const T& { return std::get<std::array<T, BlockSize>>(data_)[elem_index % BlockSize]; }
@@ -265,7 +265,7 @@ struct sparse_table {
 	auto size() const -> size_t {
 		return (block_count_ * BlockSize) - free_indices_.size();
 	}
-	template <typename T> auto set(size_t index, T&& value) -> void              { get_block(index).set(index, std::forward<T>(value)); }
+	template <typename T> auto set(size_t index, T&& value) -> T&                { return get_block(index).set(index, std::forward<T>(value)); }
 	template <typename T> [[nodiscard]] auto get(size_t index) -> T&             { return get_block(index).template get<T>(index); }
 	template <typename T> [[nodiscard]] auto get(size_t index) const -> const T& { return get_block(index).template get<T>(index); }
 private:
