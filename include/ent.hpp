@@ -366,4 +366,116 @@ private:
 	sparse_table<BlockSize, Ts...> table;
 };
 
+namespace experimental {
+
+template <size_t BlockSize, typename... Ts>
+struct zi_sparse_block {
+	[[nodiscard]]
+	auto get_next() const {
+		return next_;
+	}
+	auto set_next(zi_sparse_block<BlockSize, Ts...>* next) -> void {
+		next_ = next;
+	}
+	auto reset(size_t elem_index) -> void {
+		(reset<Ts>(elem_index), ...);
+	}
+	auto clear() -> void {
+		for (size_t i = 0; i < BlockSize; ++i) {
+			reset(i);
+		}
+	}
+	template <typename T>
+	auto set(size_t elem_index, T&& value) -> T& {
+		return get<std::decay_t<T>>(elem_index) = std::forward<T>(value);
+	}
+	template <typename T> [[nodiscard]] auto get(size_t elem_index) -> T&             { return std::get<std::array<T, BlockSize>>(data_)[elem_index % BlockSize]; }
+	template <typename T> [[nodiscard]] auto get(size_t elem_index) const -> const T& { return std::get<std::array<T, BlockSize>>(data_)[elem_index % BlockSize]; }
+private:
+	template <typename T>
+	auto reset(size_t elem_index) -> void {
+		get<T>(elem_index % BlockSize) = T{};
+	}
+	using Tuple = std::tuple<std::array<Ts, BlockSize>...>;
+	Tuple data_;
+	zi_sparse_block<BlockSize, Ts...>* next_ = nullptr;
+};
+
+template <size_t BlockSize, typename... Ts>
+struct zi_sparse_table {
+	using block_t = zi_sparse_block<BlockSize, Ts...>;
+	zi_sparse_table()
+		: first_{new block_t}, last_{first_}
+	{
+		free_indices_.resize(BlockSize);
+		std::iota(free_indices_.rbegin(), free_indices_.rend(), 0);
+	}
+	~zi_sparse_table() { erase_blocks(); }
+	[[nodiscard]]
+	auto add() -> size_t {
+		if (free_indices_.empty()) {
+			free_indices_.resize(BlockSize);
+			std::iota(free_indices_.rbegin(), free_indices_.rend(), BlockSize * block_count_);
+			add_block();
+		}
+		return pop_free_index();
+	}
+	auto erase(size_t elem_index) -> void {
+		get_block(elem_index).reset(elem_index);
+		free_indices_.push_back(elem_index);
+	}
+	auto clear() -> void {
+		auto block = first_;
+		while (block) {
+			block->clear();
+			block = block->get_next();
+		}
+		free_indices_.resize(BlockSize * block_count_);
+		std::iota(free_indices_.rbegin(), free_indices_.rend(), 0);
+	}
+	auto size() const -> size_t {
+		return (block_count_ * BlockSize) - free_indices_.size();
+	}
+	template <typename T> auto set(size_t index, T&& value) -> T&                { return get_block(index).set(index, std::forward<T>(value)); }
+	template <typename T> [[nodiscard]] auto get(size_t index) -> T&             { return get_block(index).template get<T>(index); }
+	template <typename T> [[nodiscard]] auto get(size_t index) const -> const T& { return get_block(index).template get<T>(index); }
+private:
+	auto add_block() -> void {
+		const auto new_block = new block_t;
+		last_->set_next(new_block);
+		last_ = new_block;
+		block_count_++;
+	}
+	auto erase_blocks() -> void {
+		auto block = first_;
+		while (block) {
+			const auto next = block->get_next();
+			delete block;
+			block = next;
+		}
+	}
+	auto get_block(size_t elem_index) -> zi_sparse_block<BlockSize, Ts...>& {
+		const auto block_index = elem_index / BlockSize;
+		auto block = first_;
+		for (size_t i = 0; i < block_index; ++i) { block = block->get_next(); }
+		return *block;
+	}
+	auto get_block(size_t elem_index) const -> const zi_sparse_block<BlockSize, Ts...>& {
+		const auto block_index = elem_index / BlockSize;
+		auto block = first_;
+		for (size_t i = 0; i < block_index; ++i) { block = block->get_next(); }
+		return *block;
+	}
+	auto pop_free_index() -> size_t {
+		const auto index = free_indices_.back();
+		free_indices_.pop_back();
+		return index;
+	}
+	block_t* first_;
+	block_t* last_;
+	size_t block_count_ = 1;
+	std::vector<size_t> free_indices_;
+};
+} // experimental
+
 } // ent
