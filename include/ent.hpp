@@ -433,7 +433,10 @@ struct zi_sparse_table {
 		free_indices_.resize(BlockSize * block_count_);
 		std::iota(free_indices_.rbegin(), free_indices_.rend(), 0);
 	}
-	auto size() const -> size_t {
+	auto capacity() const -> size_t {
+		return (block_count_ * BlockSize);
+	}
+	auto count() const -> size_t {
 		return (block_count_ * BlockSize) - free_indices_.size();
 	}
 	template <typename T> auto set(size_t index, T&& value) -> T&                { return get_block(index).set(index, std::forward<T>(value)); }
