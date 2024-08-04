@@ -404,11 +404,31 @@ private:
 template <size_t BlockSize, typename... Ts>
 struct zi_sparse_table {
 	using block_t = zi_sparse_block<BlockSize, Ts...>;
-	zi_sparse_table()
-		: first_{new block_t}, last_{first_}
+	zi_sparse_table() = default;
+	zi_sparse_table(const zi_sparse_table&) = delete;
+	zi_sparse_table& operator=(const zi_sparse_table&) = delete;
+	zi_sparse_table(zi_sparse_table&& other) noexcept
+		: first_{other.first_}
+		, last_{other.last_}
+		, block_count_{other.block_count_}
+		, free_indices_{std::move(other.free_indices_)}
 	{
-		free_indices_.resize(BlockSize);
-		std::iota(free_indices_.rbegin(), free_indices_.rend(), 0);
+		other.first_ = nullptr;
+		other.last_  = nullptr;
+		other.block_count_ = 0;
+	}
+	zi_sparse_table& operator=(zi_sparse_table&& other) noexcept {
+		if (this != &other) {
+			erase_blocks();
+			first_        = other.first_;
+			last_         = other.last_;
+			block_count_  = other.block_count_;
+			free_indices_ = std::move(other.free_indices_);
+			other.first_  = nullptr;
+			other.last_   = nullptr;
+			other.block_count_ = 0;
+		}
+		return *this;
 	}
 	~zi_sparse_table() { erase_blocks(); }
 	[[nodiscard]]
@@ -445,7 +465,12 @@ struct zi_sparse_table {
 private:
 	auto add_block() -> void {
 		const auto new_block = new block_t;
-		last_->set_next(new_block);
+		if (!first_) {
+			first_ = new_block;
+		}
+		if (last_) {
+			last_->set_next(new_block);
+		}
 		last_ = new_block;
 		block_count_++;
 	}
@@ -474,9 +499,9 @@ private:
 		free_indices_.pop_back();
 		return index;
 	}
-	block_t* first_;
-	block_t* last_;
-	size_t block_count_ = 1;
+	block_t* first_ = nullptr;
+	block_t* last_  = nullptr;
+	size_t block_count_ = 0;
 	std::vector<size_t> free_indices_;
 };
 } // experimental
