@@ -140,12 +140,11 @@ struct sparse_table {
 		get_block(elem_index).reset(elem_index);
 		free_indices_.push_back(elem_index);
 	}
+	auto erase_no_reset(size_t elem_index) -> void {
+		free_indices_.push_back(elem_index);
+	}
 	auto clear() -> void {
-		auto block = first_;
-		while (block) {
-			block->clear();
-			block = block->get_next();
-		}
+		with_each_block([](block_t* block) { block->clear(); });
 		free_indices_.resize(BlockSize * block_count_);
 		std::iota(free_indices_.rbegin(), free_indices_.rend(), 0);
 	}
@@ -171,10 +170,14 @@ private:
 		block_count_++;
 	}
 	auto erase_blocks() -> void {
+		with_each_block([](block_t* block) { delete block; });
+	}
+	template <typename Fn>
+	auto with_each_block(Fn&& fn) -> void {
 		auto block = first_;
 		while (block) {
 			const auto next = block->get_next();
-			delete block;
+			fn(block);
 			block = next;
 		}
 	}
