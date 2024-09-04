@@ -159,6 +159,16 @@ struct sparse_table {
 	auto count() const -> size_t {
 		return (block_count_ * BlockSize) - free_indices_.size();
 	}
+	template <typename T, typename PredFn> [[nodiscard]]
+	auto locked_find(PredFn&& pred) const -> std::optional<size_t> {
+		const auto lock = std::unique_lock(mutex_);
+		for (size_t i = 0; i < capacity(); ++i) {
+			if (pred(get<T>(i))) {
+				return i;
+			}
+		}
+		return std::nullopt;
+	}
 	template <typename Fn>
 	auto locked_visit(Fn&& fn) -> void {
 		const auto lock     = std::unique_lock(mutex_);
