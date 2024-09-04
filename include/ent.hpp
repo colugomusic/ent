@@ -175,6 +175,9 @@ struct sparse_table {
 			fn(i, get<T>(i));
 		}
 	}
+	auto lock() -> std::unique_lock<std::mutex> {
+		return std::unique_lock(mutex_);
+	}
 	template <typename T> auto set(size_t index, T&& value) -> T&                { return get_block(index).set(index, std::forward<T>(value)); }
 	template <typename T> [[nodiscard]] auto get(size_t index) -> T&             { return get_block(index).template get<T>(index); }
 	template <typename T> [[nodiscard]] auto get(size_t index) const -> const T& { return get_block(index).template get<T>(index); }
