@@ -2,6 +2,7 @@
 
 #include <algorithm>
 #include <array>
+#include <atomic>
 #include <bitset>
 #include <list>
 #include <numeric>
@@ -129,6 +130,7 @@ struct sparse_table {
 	~sparse_table() { erase_blocks(); }
 	[[nodiscard]]
 	auto add() -> size_t {
+		const auto lock = std::unique_lock(mutex_);
 		if (free_indices_.empty()) {
 			free_indices_.resize(BlockSize);
 			std::iota(free_indices_.rbegin(), free_indices_.rend(), BlockSize * block_count_);
@@ -137,13 +139,16 @@ struct sparse_table {
 		return pop_free_index();
 	}
 	auto erase(size_t elem_index) -> void {
+		const auto lock = std::unique_lock(mutex_);
 		get_block(elem_index).reset(elem_index);
 		free_indices_.push_back(elem_index);
 	}
 	auto erase_no_reset(size_t elem_index) -> void {
+		const auto lock = std::unique_lock(mutex_);
 		free_indices_.push_back(elem_index);
 	}
 	auto clear() -> void {
+		const auto lock = std::unique_lock(mutex_);
 		with_each_block([](block_t* block) { block->clear(); });
 		free_indices_.resize(BlockSize * block_count_);
 		std::iota(free_indices_.rbegin(), free_indices_.rend(), 0);
@@ -153,6 +158,22 @@ struct sparse_table {
 	}
 	auto count() const -> size_t {
 		return (block_count_ * BlockSize) - free_indices_.size();
+	}
+	template <typename Fn>
+	auto locked_visit(Fn&& fn) -> void {
+		const auto lock     = std::unique_lock(mutex_);
+		const auto capacity = block_count_ * BlockSize;
+		for (size_t i = 0; i < capacity; ++i) {
+			fn(i);
+		}
+	}
+	template <typename T, typename Fn>
+	auto locked_visit(Fn&& fn) -> void {
+		const auto lock     = std::unique_lock(mutex_);
+		const auto capacity = block_count_ * BlockSize;
+		for (size_t i = 0; i < capacity; ++i) {
+			fn(i, get<T>(i));
+		}
 	}
 	template <typename T> auto set(size_t index, T&& value) -> T&                { return get_block(index).set(index, std::forward<T>(value)); }
 	template <typename T> [[nodiscard]] auto get(size_t index) -> T&             { return get_block(index).template get<T>(index); }
@@ -200,7 +221,8 @@ private:
 	}
 	block_t* first_ = nullptr;
 	block_t* last_  = nullptr;
-	size_t block_count_ = 0;
+	std::mutex          mutex_;
+	std::atomic<size_t> block_count_ = 0;
 	std::vector<size_t> free_indices_;
 };
 
