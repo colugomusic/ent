@@ -5,6 +5,7 @@
 #include <atomic>
 #include <bitset>
 #include <list>
+#include <mutex>
 #include <numeric>
 #include <optional>
 #include <tuple>
@@ -119,8 +120,8 @@ struct sparse_table {
 			erase_blocks();
 			first_        = other.first_;
 			last_         = other.last_;
-			block_count_  = other.block_count_;
 			free_indices_ = std::move(other.free_indices_);
+			block_count_.store(other.block_count_.load());
 			other.first_  = nullptr;
 			other.last_   = nullptr;
 			other.block_count_ = 0;
