@@ -68,6 +68,7 @@ private:
 
 template <size_t BlockSize, typename... Ts>
 struct sparse_block {
+	using row_t = std::tuple<Ts&...>;
 	[[nodiscard]]
 	auto get_next() const {
 		return next_;
@@ -87,6 +88,12 @@ struct sparse_block {
 	auto set(size_t elem_index, T&& value) -> T& {
 		return get<std::decay_t<T>>(elem_index) = std::forward<T>(value);
 	}
+	[[nodiscard]]
+	auto get(size_t elem_index) -> row_t {
+		return std::apply([elem_index](auto&... args) {
+			return std::make_tuple(args[elem_index % BlockSize]...);
+		}, data_);
+	}
 	template <typename T> [[nodiscard]] auto get(size_t elem_index) -> T&             { return std::get<std::array<T, BlockSize>>(data_)[elem_index % BlockSize]; }
 	template <typename T> [[nodiscard]] auto get(size_t elem_index) const -> const T& { return std::get<std::array<T, BlockSize>>(data_)[elem_index % BlockSize]; }
 private:
@@ -102,6 +109,7 @@ private:
 template <size_t BlockSize, typename... Ts>
 struct sparse_table {
 	using block_t = sparse_block<BlockSize, Ts...>;
+	using row_t   = std::tuple<Ts&...>;
 	sparse_table() = default;
 	sparse_table(const sparse_table&) = delete;
 	sparse_table& operator=(const sparse_table&) = delete;
@@ -186,8 +194,13 @@ struct sparse_table {
 			fn(i, get<T>(i));
 		}
 	}
+	[[nodiscard]]
 	auto lock() -> std::unique_lock<std::mutex> {
 		return std::unique_lock(mutex_);
+	}
+	[[nodiscard]]
+	auto get(size_t index) -> row_t {
+		return get_block(index).get(index);
 	}
 	template <typename T> auto set(size_t index, T&& value) -> T&                { return get_block(index).set(index, std::forward<T>(value)); }
 	template <typename T> [[nodiscard]] auto get(size_t index) -> T&             { return get_block(index).template get<T>(index); }
