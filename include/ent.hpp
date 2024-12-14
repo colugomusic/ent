@@ -67,49 +67,35 @@ private:
 };
 
 template <size_t BlockSize, typename... Ts>
-struct sparse_block {
-	using row_t = std::tuple<Ts&...>;
-	[[nodiscard]]
-	auto get_next() const {
-		return next_;
-	}
-	auto set_next(sparse_block<BlockSize, Ts...>* next) -> void {
-		next_ = next;
-	}
-	auto reset(size_t elem_index) -> void {
-		(reset<Ts>(elem_index), ...);
-	}
-	auto clear() -> void {
-		for (size_t i = 0; i < BlockSize; ++i) {
-			reset(i);
-		}
-	}
-	template <typename T>
-	auto set(size_t elem_index, T&& value) -> T& {
-		return get<std::decay_t<T>>(elem_index) = std::forward<T>(value);
-	}
-	[[nodiscard]]
-	auto get(size_t elem_index) -> row_t {
-		return std::apply([elem_index](auto&... args) {
-			return std::make_tuple(args[elem_index % BlockSize]...);
-		}, data_);
-	}
-	template <typename T> [[nodiscard]] auto get(size_t elem_index) -> T&             { return std::get<std::array<T, BlockSize>>(data_)[elem_index % BlockSize]; }
-	template <typename T> [[nodiscard]] auto get(size_t elem_index) const -> const T& { return std::get<std::array<T, BlockSize>>(data_)[elem_index % BlockSize]; }
-private:
-	template <typename T>
-	auto reset(size_t elem_index) -> void {
-		get<T>(elem_index % BlockSize) = T{};
-	}
-	using Tuple = std::tuple<std::array<Ts, BlockSize>...>;
-	Tuple data_;
-	sparse_block<BlockSize, Ts...>* next_ = nullptr;
-};
-
-template <size_t BlockSize, typename... Ts>
 struct sparse_table {
-	using block_t = sparse_block<BlockSize, Ts...>;
-	using row_t   = std::tuple<Ts&...>;
+	using const_row_t = std::tuple<const Ts&...>;
+	using row_t       = std::tuple<Ts&...>;
+private:
+	struct block_index { size_t value; };
+	struct sub_index   { size_t value; };
+	struct lookup_t {
+		block_index block;
+		sub_index   sub;
+	};
+	template <typename T> using column_t = std::array<T, BlockSize>;
+	struct block_t {
+		using data_t = std::tuple<column_t<Ts>...>;
+		data_t data;
+		block_t* next = nullptr;
+	};
+	[[nodiscard]] static
+	auto get(block_t* block, sub_index idx) -> row_t {
+		return std::apply([idx](auto&... args) {
+			return std::make_tuple(args[idx]...);
+		}, block->data);
+	}
+	static auto reset(block_t* block, sub_index idx) -> void                                             { (reset<Ts>(block, idx), ...); }
+	static auto clear_block(block_t* block) -> void                                                      { for (size_t i = 0; i < BlockSize; ++i) { reset(block, {i}); } }
+	template <typename T> [[nodiscard]] static auto get(block_t* block, sub_index idx) -> T&             { return std::get<column_t<T>>(block->data)[idx.value]; }
+	template <typename T> [[nodiscard]] static auto get(const block_t& block, sub_index idx) -> const T& { return std::get<column_t<T>>(block.data)[idx.value]; }
+	template <typename T> auto set(block_t* block, sub_index idx, T&& value) -> T&                       { return get<std::decay_t<T>>(block, idx) = std::forward<T>(value); }
+	template <typename T> static auto reset(block_t* block, sub_index idx) -> void                       { get<T>(block, idx) = T{}; }
+public:
 	sparse_table() = default;
 	sparse_table(const sparse_table&) = delete;
 	sparse_table& operator=(const sparse_table&) = delete;
@@ -148,8 +134,10 @@ struct sparse_table {
 		return pop_free_index();
 	}
 	auto erase(size_t elem_index) -> void {
-		const auto lock = std::unique_lock(mutex_);
-		get_block(elem_index).reset(elem_index);
+		const auto lock   = std::unique_lock(mutex_);
+		const auto lookup = make_lookup(elem_index);
+		auto& block       = get_block(lookup.block);
+		reset(&block, lookup.sub);
 		free_indices_.push_back(elem_index);
 	}
 	auto erase_no_reset(size_t elem_index) -> void {
@@ -158,7 +146,7 @@ struct sparse_table {
 	}
 	auto clear() -> void {
 		const auto lock = std::unique_lock(mutex_);
-		with_each_block([](block_t* block) { block->clear(); });
+		with_each_block([](block_t* block) { clear_block(block); });
 		free_indices_.resize(BlockSize * block_count_);
 		std::iota(free_indices_.rbegin(), free_indices_.rend(), 0);
 	}
@@ -199,21 +187,34 @@ struct sparse_table {
 		return std::unique_lock(mutex_);
 	}
 	[[nodiscard]]
-	auto get(size_t index) -> row_t {
-		return get_block(index).get(index);
+	auto get(size_t idx) -> row_t {
+		auto lookup = make_lookup(idx);
+		auto& block = get_block(lookup.block);
+		return get(&block, lookup.sub);
 	}
-	template <typename T> auto set(size_t index, T&& value) -> T&                { return get_block(index).set(index, std::forward<T>(value)); }
-	template <typename T> [[nodiscard]] auto get(size_t index) -> T&             { return get_block(index).template get<T>(index); }
-	template <typename T> [[nodiscard]] auto get(size_t index) const -> const T& { return get_block(index).template get<T>(index); }
+	template <typename T>
+	auto set(size_t idx, T&& value) -> T& {
+		auto lookup = make_lookup(idx);
+		auto& block = get_block(lookup.block);
+		return set(&block, lookup.sub, std::forward<T>(value));
+	}
+	template <typename T> [[nodiscard]]
+	auto get(size_t idx) -> T& {
+		auto lookup = make_lookup(idx);
+		auto& block = get_block(lookup.block);
+		return get<T>(&block, lookup.sub);
+	}
+	template <typename T> [[nodiscard]]
+	auto get(size_t idx) const -> const T& {
+		auto lookup = make_lookup(idx);
+		auto& block = get_block(lookup.block);
+		return get<T>(block, lookup.sub);
+	}
 private:
 	auto add_block() -> void {
 		const auto new_block = new block_t;
-		if (!first_) {
-			first_ = new_block;
-		}
-		if (last_) {
-			last_->set_next(new_block);
-		}
+		if (!first_) { first_ = new_block; }
+		if (last_) { last_->next = new_block; }
 		last_ = new_block;
 		block_count_++;
 	}
@@ -224,27 +225,36 @@ private:
 	auto with_each_block(Fn&& fn) -> void {
 		auto block = first_;
 		while (block) {
-			const auto next = block->get_next();
+			const auto next = block->next;
 			fn(block);
 			block = next;
 		}
 	}
-	auto get_block(size_t elem_index) -> sparse_block<BlockSize, Ts...>& {
-		const auto block_index = elem_index / BlockSize;
+	auto get_block(block_index idx) -> block_t& {
+		// NOTE: This looks like a data race. But it is not!
+		// As long as the index being passed in was valid when this function was called,
+		// the loop will exit before reading the 'next' field of any contended blocks.
+		// If you are having a hard time grasping that then consider what happens if
+		// idx == 0 (the body of the loop is not run.)
 		auto block = first_;
-		for (size_t i = 0; i < block_index; ++i) { block = block->get_next(); }
+		for (size_t i = 0; i < idx.value; ++i) { block = block->next; }
 		return *block;
 	}
-	auto get_block(size_t elem_index) const -> const sparse_block<BlockSize, Ts...>& {
-		const auto block_index = elem_index / BlockSize;
+	auto get_block(block_index idx) const -> const block_t& {
 		auto block = first_;
-		for (size_t i = 0; i < block_index; ++i) { block = block->get_next(); }
+		for (size_t i = 0; i < idx.value; ++i) { block = block->next; }
 		return *block;
 	}
 	auto pop_free_index() -> size_t {
 		const auto index = free_indices_.back();
 		free_indices_.pop_back();
 		return index;
+	}
+	auto make_lookup(size_t elem_index) const -> lookup_t {
+		if (elem_index >= capacity()) {
+			throw std::out_of_range("Element index out of range");
+		}
+		return {{elem_index / BlockSize}, {elem_index % BlockSize}};
 	}
 	block_t* first_ = nullptr;
 	block_t* last_  = nullptr;
