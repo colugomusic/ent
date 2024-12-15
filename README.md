@@ -4,7 +4,7 @@ This data structure can be useful in a situation where you want to allocate stor
 
 This is achieved by allocating storage in contiguous blocks of a fixed size (similar to a `std::deque`.) However, the blocks are managed as a linked list rather than with an array of pointers. An upshot of this is that references are 100% stable, elements can be accessed from multiple threads, and interestingly, the access is realtime-safe.
 
-In the ideal case, the table will consist of a single block for the lifetime of your program. If the user pushes things farther than you expect, a second block will be allocated. Accessing an element in that second block will require traversing the linked list, which puts it about in line with `std::deque` in terms of hopping around in memory. If a third block is allocated, it will be worse than `std::deque` (however we still have safe multi-threaded access which `std::deque` does not.)
+In the ideal case, the table will consist of a single block for the lifetime of your program. If the user pushes things further than you expect, a second block will be allocated. Accessing an element in that second block will require traversing the linked list, which puts it about in line with `std::deque` in terms of hopping around in memory. If a third block is allocated, it will be worse than `std::deque` (however we still have safe multi-threaded access which `std::deque` does not.)
 
 If you detect that your users are consistently exceeding the initial table capacity then you might choose to increase the block size.
 
