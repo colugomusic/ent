@@ -16,7 +16,7 @@ When a new block is allocated, every column of every row of the block is zero-in
 
 I recommend designing your data so that when a row is zero-initialized, it is recognizable as an "unused" row. When iterating over the table with `find` or `visit`, every row will be visited, regardless of whether or not it is in use, so you might want to skip the invalid rows depending on what you are doing. I am not an expert on writing data-oriented software but I think this kind of behavior is typical (because of the way CPUs work, iterating over a contiguous block of tightly-packed data and simply skipping the rows you're not interested in will often be faster than doing anything more clever.)
 
-The `ent::lock` annotation is used to inidicate the parts of the API which will take a lock on a mutex to do their work. If a function doesn't have `ent::lock_t` as its first argument, then it is realtime-safe.
+The `ent::lock` annotation is used to indicate the parts of the API which will take a lock on a mutex to do their work. If a function doesn't have `ent::lock_t` as its first argument, then it is realtime-safe.
 
 # Usage
 
