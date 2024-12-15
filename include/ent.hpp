@@ -17,58 +17,6 @@ namespace ent {
 struct lock_t{};
 static constexpr auto lock = lock_t{};
 
-template <typename... Ts>
-struct simple_table {
-	auto resize(size_t size) -> void {
-		if (size <= this->size()) {
-			return;
-		}
-		(std::get<std::vector<Ts>>(data_).resize(size), ...);
-	}
-	auto push_back() -> size_t {
-		const auto index = size();
-		(std::get<std::vector<Ts>>(data_).emplace_back(), ...);
-		return index;
-	}
-	auto is_valid(size_t index) const -> bool {
-		return index < size();
-	}
-	auto size() const -> size_t { return std::get<0>(data_).size(); }
-	template <typename T> [[nodiscard]]
-	auto find(const T& value) const -> std::optional<size_t> {
-		size_t index = 0;
-		for (auto value_ : get<T>()) {
-			if (value_ == value) {
-				return index;
-			};
-			index++;
-		}
-		return std::nullopt;
-	}
-	template <typename T, typename Pred> [[nodiscard]]
-	auto find(Pred&& pred) const -> std::optional<size_t> {
-		size_t index = 0;
-		for (auto value : get<T>()) {
-			if (pred(value)) {
-				return index;
-			}
-			index++;
-		}
-		return std::nullopt;
-	}
-	template <typename T>
-	auto set(size_t index, T&& value) -> void {
-		get<std::decay_t<T>>(index) = std::forward<T>(value);
-	}
-	template <typename T> [[nodiscard]] auto get() -> std::vector<T>& { return std::get<std::vector<T>>(data_); }
-	template <typename T> [[nodiscard]] auto get() const -> const std::vector<T>& { return std::get<std::vector<T>>(data_); }
-	template <typename T> [[nodiscard]] auto get(size_t index) -> T& { return std::get<std::vector<T>>(data_)[index]; }
-	template <typename T> [[nodiscard]] auto get(size_t index) const -> const T& { return std::get<std::vector<T>>(data_)[index]; }
-private:
-	using Tuple = std::tuple<std::vector<Ts>...>;
-	Tuple data_;
-};
-
 template <size_t BlockSize, typename... Ts>
 struct table {
 	using const_row_t = std::tuple<const Ts&...>;
@@ -283,6 +231,59 @@ private:
 	std::atomic<size_t> block_count_ = 0;
 	std::vector<size_t> free_indices_;
 	std::mutex          mutex_;
+};
+
+// A single-threaded table where rows can only be acquired and never released.
+template <typename... Ts>
+struct simple_table {
+	auto resize(size_t size) -> void {
+		if (size <= this->size()) {
+			return;
+		}
+		(std::get<std::vector<Ts>>(data_).resize(size), ...);
+	}
+	auto push_back() -> size_t {
+		const auto index = size();
+		(std::get<std::vector<Ts>>(data_).emplace_back(), ...);
+		return index;
+	}
+	auto is_valid(size_t index) const -> bool {
+		return index < size();
+	}
+	auto size() const -> size_t { return std::get<0>(data_).size(); }
+	template <typename T> [[nodiscard]]
+	auto find(const T& value) const -> std::optional<size_t> {
+		size_t index = 0;
+		for (auto value_ : get<T>()) {
+			if (value_ == value) {
+				return index;
+			};
+			index++;
+		}
+		return std::nullopt;
+	}
+	template <typename T, typename Pred> [[nodiscard]]
+	auto find(Pred&& pred) const -> std::optional<size_t> {
+		size_t index = 0;
+		for (auto value : get<T>()) {
+			if (pred(value)) {
+				return index;
+			}
+			index++;
+		}
+		return std::nullopt;
+	}
+	template <typename T>
+	auto set(size_t index, T&& value) -> void {
+		get<std::decay_t<T>>(index) = std::forward<T>(value);
+	}
+	template <typename T> [[nodiscard]] auto get() -> std::vector<T>& { return std::get<std::vector<T>>(data_); }
+	template <typename T> [[nodiscard]] auto get() const -> const std::vector<T>& { return std::get<std::vector<T>>(data_); }
+	template <typename T> [[nodiscard]] auto get(size_t index) -> T& { return std::get<std::vector<T>>(data_)[index]; }
+	template <typename T> [[nodiscard]] auto get(size_t index) const -> const T& { return std::get<std::vector<T>>(data_)[index]; }
+private:
+	using Tuple = std::tuple<std::vector<Ts>...>;
+	Tuple data_;
 };
 
 } // ent
