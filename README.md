@@ -12,9 +12,9 @@ Note that when accessing elements of the table, the only thread-safety provided 
 
 Calling `acquire` is like saying, "I want to use a row of this table for something." It will give you back an index to the row. When you are finished using the row, call `release` with the index. Calling `acquire` when every row is in use will cause a new block to be allocated. This is the only situation in which new blocks are allocated.
 
-When a new block is allocated, every column of every row of the block is zero-initialized. The rows are all technically there before you call `acquire`, and you can even access them safely. `get_capacity` will always return `(block size) * (number of allocated blocks)`.
+When a new block is allocated, every column of every row of the block is zero-initialized. The rows will then all technically be there before you even call `acquire` to reserve one, and you can even access them safely. `get_capacity` will always return `(block size) * (number of allocated blocks)`.
 
-I recommend designing your data so that when a row is zero-initialized, it is recognizable as an "unused" row. When iterating over the table with `find` or `visit`, every row will be visited, regardless of whether or not it is in use, so you might want to skip the invalid rows depending on what you are doing. I am not an expert on writing data-oriented software but I think this kind of behavior is typical (because of the way CPUs work, iterating over a contiguous block of tightly-packed data and simply skipping the rows you're not interested in will often be way faster than doing anything more clever.)
+I recommend designing your data so that when a row is zero-initialized, it is recognizable as an "unused" row. When iterating over the table with `find` or `visit`, every row will be visited, regardless of whether or not it is in use, so you might want to skip the invalid rows depending on what you are doing. I am not an expert on writing data-oriented software but I think this kind of behavior is typical (because of the way CPUs work, iterating over a contiguous block of tightly-packed data and simply skipping the rows you're not interested in will often be faster than doing anything more clever.)
 
 The `ent::lock` annotation is used to inidicate the parts of the API which will take a lock on a mutex to do their work. If a function doesn't have `ent::lock_t` as its first argument, then it is realtime-safe.
 
@@ -26,6 +26,9 @@ struct Column_A { ... };
 struct Column_B { ... };
 struct Column_C { ... };
 ent::table<REASONABLE_MAXIMUM, Column_A, Column_B, Column_C> table;
+```
+
+```c++
 // Acquire a row to use.
 auto idx1 = table.acquire(ent::lock);
 // You can get/set a field like this:
