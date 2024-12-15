@@ -1,3 +1,4 @@
+# ent::table
 This is a data-oriented storage table with care taken to make it useable in multi-threaded and realtime contexts (e.g. in an audio application.)
 
 This data structure can be useful in a situation where you want to allocate storage for the "reasonable maximum" number of rows that will exist in your application, but you also want things to continue working if that soft limit is exceeded (Perhaps you are working on software intended for "creative" users who are inclined to push things as far as their hardware can handle, and would become annoyed if the developer imposed an upper limit on the number of entities they can create.)
@@ -18,7 +19,7 @@ I recommend designing your data so that when a row is zero-initialized, it is re
 
 The `ent::lock` annotation is used to indicate the parts of the API which will take a lock on a mutex to do their work. If a function doesn't have `ent::lock_t` as its first argument, then it is realtime-safe.
 
-# Usage
+## Usage
 
 ```c++
 static constexpr size_t REASONABLE_MAXIMUM = 1000;
