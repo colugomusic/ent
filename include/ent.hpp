@@ -14,8 +14,11 @@
 
 namespace ent {
 
+struct lock_t{};
+static constexpr auto lock = lock_t{};
+
 template <typename... Ts>
-struct table {
+struct simple_table {
 	auto resize(size_t size) -> void {
 		if (size <= this->size()) {
 			return;
@@ -67,7 +70,7 @@ private:
 };
 
 template <size_t BlockSize, typename... Ts>
-struct sparse_table {
+struct table {
 	using const_row_t = std::tuple<const Ts&...>;
 	using row_t       = std::tuple<Ts&...>;
 private:
@@ -89,6 +92,12 @@ private:
 			return std::make_tuple(args[idx]...);
 		}, block->data);
 	}
+	[[nodiscard]] static
+	auto get(const block_t& block, sub_index idx) -> const_row_t {
+		return std::apply([idx](auto&... args) {
+			return std::make_tuple(args[idx]...);
+		}, block.data);
+	}
 	static auto reset(block_t* block, sub_index idx) -> void                                             { (reset<Ts>(block, idx), ...); }
 	static auto clear_block(block_t* block) -> void                                                      { for (size_t i = 0; i < BlockSize; ++i) { reset(block, {i}); } }
 	template <typename T> [[nodiscard]] static auto get(block_t* block, sub_index idx) -> T&             { return std::get<column_t<T>>(block->data)[idx.value]; }
@@ -96,10 +105,10 @@ private:
 	template <typename T> auto set(block_t* block, sub_index idx, T&& value) -> T&                       { return get<std::decay_t<T>>(block, idx) = std::forward<T>(value); }
 	template <typename T> static auto reset(block_t* block, sub_index idx) -> void                       { get<T>(block, idx) = T{}; }
 public:
-	sparse_table() = default;
-	sparse_table(const sparse_table&) = delete;
-	sparse_table& operator=(const sparse_table&) = delete;
-	sparse_table(sparse_table&& other) noexcept
+	table() = default;
+	table(const table&) = delete;
+	table& operator=(const table&) = delete;
+	table(table&& other) noexcept
 		: first_{other.first_}
 		, last_{other.last_}
 		, block_count_{other.block_count_}
@@ -109,7 +118,7 @@ public:
 		other.last_  = nullptr;
 		other.block_count_ = 0;
 	}
-	sparse_table& operator=(sparse_table&& other) noexcept {
+	table& operator=(table&& other) noexcept {
 		if (this != &other) {
 			erase_blocks();
 			first_        = other.first_;
@@ -122,10 +131,10 @@ public:
 		}
 		return *this;
 	}
-	~sparse_table() { erase_blocks(); }
+	~table() { erase_blocks(); }
 	[[nodiscard]]
-	auto add() -> size_t {
-		const auto lock = std::unique_lock(mutex_);
+	auto acquire(ent::lock_t) -> size_t {
+		const auto lock = std::lock_guard{mutex_};
 		if (free_indices_.empty()) {
 			free_indices_.resize(BlockSize);
 			std::iota(free_indices_.rbegin(), free_indices_.rend(), BlockSize * block_count_);
@@ -133,33 +142,36 @@ public:
 		}
 		return pop_free_index();
 	}
-	auto erase(size_t elem_index) -> void {
-		const auto lock   = std::unique_lock(mutex_);
+	auto release(ent::lock_t, size_t elem_index) -> void {
+		const auto lock   = std::lock_guard{mutex_};
 		const auto lookup = make_lookup(elem_index);
 		auto& block       = get_block(lookup.block);
 		reset(&block, lookup.sub);
 		free_indices_.push_back(elem_index);
 	}
-	auto erase_no_reset(size_t elem_index) -> void {
-		const auto lock = std::unique_lock(mutex_);
+	auto release_no_reset(ent::lock_t, size_t elem_index) -> void {
+		const auto lock = std::lock_guard{mutex_};
 		free_indices_.push_back(elem_index);
 	}
-	auto clear() -> void {
-		const auto lock = std::unique_lock(mutex_);
+	auto clear(ent::lock_t) -> void {
+		const auto lock = std::lock_guard{mutex_};
 		with_each_block([](block_t* block) { clear_block(block); });
 		free_indices_.resize(BlockSize * block_count_);
 		std::iota(free_indices_.rbegin(), free_indices_.rend(), 0);
 	}
-	auto capacity() const -> size_t {
+	[[nodiscard]]
+	auto get_capacity() const -> size_t {
 		return (block_count_ * BlockSize);
 	}
-	auto count() const -> size_t {
+	[[nodiscard]]
+	auto get_active_row_count(ent::lock_t) const -> size_t {
+		const auto lock = std::lock_guard{mutex_};
 		return (block_count_ * BlockSize) - free_indices_.size();
 	}
 	template <typename T, typename PredFn> [[nodiscard]]
-	auto locked_find(PredFn&& pred) -> std::optional<size_t> {
-		const auto lock = std::unique_lock(mutex_);
-		for (size_t i = 0; i < capacity(); ++i) {
+	auto find(ent::lock_t, PredFn&& pred) -> std::optional<size_t> {
+		const auto lock = std::lock_guard{mutex_};
+		for (size_t i = 0; i < get_capacity(); ++i) {
 			if (pred(get<T>(i))) {
 				return i;
 			}
@@ -167,30 +179,40 @@ public:
 		return std::nullopt;
 	}
 	template <typename Fn>
-	auto locked_visit(Fn&& fn) -> void {
-		const auto lock     = std::unique_lock(mutex_);
+	auto visit(ent::lock_t, Fn&& fn) -> void {
+		const auto lock     = std::lock_guard{mutex_};
 		const auto capacity = block_count_ * BlockSize;
 		for (size_t i = 0; i < capacity; ++i) {
 			fn(i);
 		}
 	}
 	template <typename T, typename Fn>
-	auto locked_visit(Fn&& fn) -> void {
-		const auto lock     = std::unique_lock(mutex_);
+	auto visit(ent::lock_t, Fn&& fn) -> void {
+		const auto lock     = std::lock_guard{mutex_};
+		const auto capacity = block_count_ * BlockSize;
+		for (size_t i = 0; i < capacity; ++i) {
+			fn(i, get<T>(i));
+		}
+	}
+	template <typename T, typename Fn>
+	auto visit(ent::lock_t, Fn&& fn) const -> void {
+		const auto lock     = std::lock_guard{mutex_};
 		const auto capacity = block_count_ * BlockSize;
 		for (size_t i = 0; i < capacity; ++i) {
 			fn(i, get<T>(i));
 		}
 	}
 	[[nodiscard]]
-	auto lock() -> std::unique_lock<std::mutex> {
-		return std::unique_lock(mutex_);
-	}
-	[[nodiscard]]
 	auto get(size_t idx) -> row_t {
 		auto lookup = make_lookup(idx);
 		auto& block = get_block(lookup.block);
 		return get(&block, lookup.sub);
+	}
+	[[nodiscard]]
+	auto get(size_t idx) const -> const_row_t {
+		auto lookup = make_lookup(idx);
+		auto& block = get_block(lookup.block);
+		return get(block, lookup.sub);
 	}
 	template <typename T>
 	auto set(size_t idx, T&& value) -> T& {
@@ -251,16 +273,16 @@ private:
 		return index;
 	}
 	auto make_lookup(size_t elem_index) const -> lookup_t {
-		if (elem_index >= capacity()) {
+		if (elem_index >= get_capacity()) {
 			throw std::out_of_range("Element index out of range");
 		}
 		return {{elem_index / BlockSize}, {elem_index % BlockSize}};
 	}
-	block_t* first_ = nullptr;
-	block_t* last_  = nullptr;
-	std::mutex          mutex_;
+	block_t*            first_       = nullptr;
+	block_t*            last_        = nullptr;
 	std::atomic<size_t> block_count_ = 0;
 	std::vector<size_t> free_indices_;
+	std::mutex          mutex_;
 };
 
 } // ent

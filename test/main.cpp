@@ -7,7 +7,7 @@ struct S {
 };
 
 TEST_CASE("table") {
-	ent::table<int, float> store;
+	ent::simple_table<int, float> store;
 	REQUIRE(store.size() == 0);
 	REQUIRE(!store.is_valid(0));
 	const auto idx0 = store.push_back();
@@ -44,30 +44,30 @@ TEST_CASE("table") {
 }
 
 TEST_CASE("sparse_table") {
-	ent::sparse_table<512, int, float, S> store;
+	ent::table<512, int, float, S> store;
 	//REQUIRE(store.size() == 0);
-	auto idx0 = store.add();
+	auto idx0 = store.acquire(ent::lock);
 	//REQUIRE(store.size() == 1);
-	auto idx1 = store.add();
+	auto idx1 = store.acquire(ent::lock);
 	//REQUIRE(store.size() == 2);
 	store.get<int>(idx0) = 111;
 	store.get<float>(idx0) = 111.1f;
 	store.get<int>(idx1) = 222;
 	store.get<float>(idx1) = 222.2f;
-	auto idx2 = store.add();
+	auto idx2 = store.acquire(ent::lock);
 	//REQUIRE(store.size() == 3);
 	REQUIRE(store.get<int>(idx0) == 111);
 	REQUIRE(store.get<float>(idx0) == 111.1f);
 	REQUIRE(store.get<int>(idx1) == 222);
 	REQUIRE(store.get<float>(idx1) == 222.2f);
-	store.erase(idx0);
+	store.release(ent::lock, idx0);
 	REQUIRE(store.get<int>(idx1) == 222);
 	REQUIRE(store.get<float>(idx1) == 222.2f);
-	idx0 = store.add();
-	store.clear();
-	idx0 = store.add();
-	idx1 = store.add();
-	idx2 = store.add();
+	idx0 = store.acquire(ent::lock);
+	store.clear(ent::lock);
+	idx0 = store.acquire(ent::lock);
+	idx1 = store.acquire(ent::lock);
+	idx2 = store.acquire(ent::lock);
 	store.get<int>(idx2) = 333;
 	store.get<float>(idx2) = 333.3f;
 	REQUIRE(store.get<int>(idx2) == 333);
@@ -75,26 +75,26 @@ TEST_CASE("sparse_table") {
 	store.get<S>(idx0) = S{111};
 	store.get<S>(idx1) = S{222};
 	store.get<S>(idx2) = S{333};
-	store.clear();
-	idx0 = store.add();
-	idx1 = store.add();
-	idx2 = store.add();
+	store.clear(ent::lock);
+	idx0 = store.acquire(ent::lock);
+	idx1 = store.acquire(ent::lock);
+	idx2 = store.acquire(ent::lock);
 	REQUIRE(store.get<S>(idx0).value == 0);
 	REQUIRE(store.get<S>(idx1).value == 0);
 	REQUIRE(store.get<S>(idx2).value == 0);
 	store.get<S>(idx1).value = 222;
 	REQUIRE(store.get<S>(idx1).value == 222);
-	store.erase(idx1);
-	idx1 = store.add();
+	store.release(ent::lock, idx1);
+	idx1 = store.acquire(ent::lock);
 	REQUIRE(store.get<S>(idx1).value == 0);
-	store.clear();
-	idx0 = store.add();
-	idx1 = store.add();
-	idx2 = store.add();
+	store.clear(ent::lock);
+	idx0 = store.acquire(ent::lock);
+	idx1 = store.acquire(ent::lock);
+	idx2 = store.acquire(ent::lock);
 	store.get<int>(idx0) = 111;
 	store.get<int>(idx1) = 222;
 	store.get<int>(idx2) = 333;
-	store.erase(idx2);
-	store.erase(idx0);
+	store.release(ent::lock, idx2);
+	store.release(ent::lock, idx0);
 	REQUIRE(store.get<int>(idx1) == 222);
 }
