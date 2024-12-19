@@ -8,6 +8,7 @@
 #include <mutex>
 #include <numeric>
 #include <optional>
+#include <stdexcept>
 #include <tuple>
 #include <type_traits>
 #include <vector>
