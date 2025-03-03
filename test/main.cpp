@@ -7,7 +7,7 @@ struct S {
 };
 
 TEST_CASE("table") {
-	ent::simple_table<int, float> store;
+	ent::simple_table<"test", int, float> store;
 	REQUIRE(store.size() == 0);
 	REQUIRE(!store.is_valid(0));
 	const auto idx0 = store.push_back();
@@ -44,18 +44,14 @@ TEST_CASE("table") {
 }
 
 TEST_CASE("sparse_table") {
-	ent::table<512, int, float, S> store;
-	//REQUIRE(store.size() == 0);
+	ent::table<"test", 512, int, float, S> store;
 	auto idx0 = store.acquire(ent::lock);
-	//REQUIRE(store.size() == 1);
 	auto idx1 = store.acquire(ent::lock);
-	//REQUIRE(store.size() == 2);
 	store.get<int>(idx0) = 111;
 	store.get<float>(idx0) = 111.1f;
 	store.get<int>(idx1) = 222;
 	store.get<float>(idx1) = 222.2f;
 	auto idx2 = store.acquire(ent::lock);
-	//REQUIRE(store.size() == 3);
 	REQUIRE(store.get<int>(idx0) == 111);
 	REQUIRE(store.get<float>(idx0) == 111.1f);
 	REQUIRE(store.get<int>(idx1) == 222);
