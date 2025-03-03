@@ -9,4 +9,4 @@ target_sources(ent INTERFACE
 	FILES
 		include/ent.hpp
 )
-target_include_directories(ent INTERFACE ${CMAKE_CURRENT_LIST_DIR}/include)
+target_compile_features(ent INTERFACE cxx_std_20)
