@@ -4,11 +4,13 @@
 #include <array>
 #include <atomic>
 #include <bitset>
+#include <format>
 #include <list>
 #include <mutex>
 #include <numeric>
 #include <optional>
 #include <stdexcept>
+#include <string_view>
 #include <tuple>
 #include <type_traits>
 #include <vector>
@@ -18,7 +20,13 @@ namespace ent {
 struct lock_t{};
 static constexpr auto lock = lock_t{};
 
-template <size_t BlockSize, typename... Ts>
+template <size_t N>
+struct string_literal {
+	constexpr string_literal(const char (&str)[N]) { std::copy_n(str, N, value); }
+	char value[N];
+};
+
+template <string_literal Name, size_t BlockSize, typename... Ts>
 struct table {
 	using const_row_t = std::tuple<const Ts&...>;
 	using row_t       = std::tuple<Ts&...>;
@@ -181,6 +189,10 @@ public:
 		auto& block = get_block(lookup.block);
 		return get<T>(block, lookup.sub);
 	}
+	[[nodiscard]] static constexpr
+	auto get_name() -> std::string_view {
+		return Name.value;
+	}
 private:
 	auto add_block() -> void {
 		const auto new_block = new block_t;
@@ -223,7 +235,10 @@ private:
 	}
 	auto make_lookup(size_t elem_index) const -> lookup_t {
 		if (elem_index >= get_capacity()) {
-			throw std::out_of_range("Element index out of range");
+			throw std::out_of_range(
+				std::format(
+					"Tried to look up an element from table '{0}' at index {1}, but {1} is not a valid index! The table capacity is {2}.",
+					get_name(), elem_index, get_capacity()));
 		}
 		return {{elem_index / BlockSize}, {elem_index % BlockSize}};
 	}
@@ -232,10 +247,11 @@ private:
 	std::atomic<size_t> block_count_ = 0;
 	std::vector<size_t> free_indices_;
 	std::mutex          mutex_;
+	std::string         name_;
 };
 
 // A single-threaded table where rows can only be acquired and never released.
-template <typename... Ts>
+template <string_literal Name, typename... Ts>
 struct simple_table {
 	auto resize(size_t size) -> void {
 		if (size <= this->size()) {
@@ -280,9 +296,27 @@ struct simple_table {
 	}
 	template <typename T> [[nodiscard]] auto get() -> std::vector<T>& { return std::get<std::vector<T>>(data_); }
 	template <typename T> [[nodiscard]] auto get() const -> const std::vector<T>& { return std::get<std::vector<T>>(data_); }
-	template <typename T> [[nodiscard]] auto get(size_t index) -> T& { return std::get<std::vector<T>>(data_)[index]; }
-	template <typename T> [[nodiscard]] auto get(size_t index) const -> const T& { return std::get<std::vector<T>>(data_)[index]; }
+	template <typename T> [[nodiscard]] auto get(size_t index) -> T& {
+		check_index(index);
+		return std::get<std::vector<T>>(data_)[index];
+	}
+	template <typename T> [[nodiscard]] auto get(size_t index) const -> const T& {
+		check_index(index);
+		return std::get<std::vector<T>>(data_)[index];
+	}
+	[[nodiscard]] static constexpr
+	auto get_name() -> std::string_view {
+		return Name.value;
+	}
 private:
+	auto check_index(size_t index) const -> void {
+		if (index >= size()) {
+			throw std::out_of_range(
+				std::format(
+					"Tried to look up an element from table '{0}' at index {1}, but {1} is not a valid index! The table size is {2}.",
+					get_name(), index, size()));
+		}
+	}
 	using Tuple = std::tuple<std::vector<Ts>...>;
 	Tuple data_;
 };
