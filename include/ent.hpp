@@ -68,7 +68,7 @@ public:
 	table(table&& other) noexcept
 		: first_{other.first_}
 		, last_{other.last_}
-		, block_count_{other.block_count_}
+		, block_count_{other.block_count_.load()}
 		, free_indices_{std::move(other.free_indices_)}
 	{
 		other.first_ = nullptr;
